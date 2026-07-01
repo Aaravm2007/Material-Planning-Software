@@ -7,6 +7,7 @@ function redirectToLogin() {
   }
 }
 
+
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const res = await fetch(url, { ...options, credentials: "include" });
   if (res.status === 401 || res.status === 403) redirectToLogin();

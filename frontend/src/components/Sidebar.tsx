@@ -180,17 +180,27 @@ export default function Sidebar() {
         <div style={{ fontSize: "10px", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.08em", textTransform: "uppercase", color: "#a1a1aa", marginBottom: "6px" }}>
           Signed in as
         </div>
-        <div style={{ fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {email || "—"}
         </div>
-        <span style={{
-          display: "inline-block", padding: "2px 7px", borderRadius: "4px", fontSize: "11px",
-          fontFamily: "var(--font-mono), monospace",
-          background: role === "expert" ? "#09090b" : "#f4f4f5",
-          color: role === "expert" ? "#ffffff" : "#52525b",
-        }}>
-          {role}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{
+            display: "inline-block", padding: "2px 7px", borderRadius: "4px", fontSize: "11px",
+            fontFamily: "var(--font-mono), monospace",
+            background: role === "expert" ? "#09090b" : "#f4f4f5",
+            color: role === "expert" ? "#ffffff" : "#52525b",
+          }}>
+            {role}
+          </span>
+          <a
+            href={`https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`}
+            style={{ fontSize: "11px", color: "#a1a1aa", textDecoration: "none", fontFamily: "var(--font-sans), sans-serif" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#a1a1aa"; }}
+          >
+            Sign out
+          </a>
+        </div>
       </div>
     </aside>
   );

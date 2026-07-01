@@ -64,13 +64,25 @@ export default function AdminClient() {
 
   return (
     <div style={{ padding: "32px 40px", fontFamily: "var(--font-sans), sans-serif", maxWidth: "800px" }}>
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: "0 0 4px" }}>
-          User Management
-        </h1>
-        <p style={{ fontSize: "13px", color: "#71717a", margin: 0 }}>
-          Manage access roles for team members. Changes take effect on their next page load.
-        </p>
+      <div style={{ marginBottom: "24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: "0 0 4px" }}>
+            User Management
+          </h1>
+          <p style={{ fontSize: "13px", color: "#71717a", margin: 0 }}>
+            Manage access roles for team members. Changes take effect on their next page load.
+          </p>
+        </div>
+        <a
+          href={`https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`}
+          style={{
+            padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 500,
+            fontFamily: "var(--font-sans), sans-serif", textDecoration: "none",
+            border: "1px solid #fecaca", color: "#ef4444", background: "transparent",
+          }}
+        >
+          Sign out
+        </a>
       </div>
 
       <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", overflow: "hidden" }}>

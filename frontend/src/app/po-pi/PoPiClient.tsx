@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ import { useTableState, ColDef } from "@/components/useTableState";
 interface Row { id: number; uid: string; [key: string]: string | null | number; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PO_PI_COLS = [
   { key: "uid",                   label: "UID"              },

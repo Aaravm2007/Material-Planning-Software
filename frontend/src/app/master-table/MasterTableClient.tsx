@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import DataTable, { Row, COLUMNS } from "@/components/DataTable";
 import AmountInput from "@/components/AmountInput";
 import { useTableState, ColDef } from "@/components/useTableState";
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const POLL_MS = 5_000;
 
 // All editable fields grouped by stage

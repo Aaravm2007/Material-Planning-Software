@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import InlineFilters from "@/components/InlineFilters";
@@ -17,7 +17,7 @@ const BOE_FILTER_DEFS: ColDef[] = [
 interface Row { id: number; uid: string; po_total_value: string | null; freight_charges: string | null; boe_no: string | null; dollar_rate: string | null; custom_exchange_rate: string | null; provisional_boe: string | null; actual_boe: string | null; [key: string]: string | null | number; }
 interface BoeEntry { id: number; uid: string; amount: string; note: string | null; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "action"): React.CSSProperties => ({
   padding: "5px 12px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,

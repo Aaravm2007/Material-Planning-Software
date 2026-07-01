@@ -1,8 +1,8 @@
-import SuppliersClient from "./SuppliersClient";
+﻿import SuppliersClient from "./SuppliersClient";
 
 async function getData() {
   try {
-    const res = await fetch("http://localhost:8000/api/suppliers/", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/suppliers/`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

@@ -1,8 +1,8 @@
-import DueDateClient from "./DueDateClient";
+﻿import DueDateClient from "./DueDateClient";
 
 async function getData() {
   try {
-    const res = await fetch("http://localhost:8000/api/rows/stage/due_date", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/due_date`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

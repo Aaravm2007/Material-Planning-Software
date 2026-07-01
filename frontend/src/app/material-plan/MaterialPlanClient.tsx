@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { SHIPMENT_STATUSES } from "@/app/import-planning/ImportPlanningClient";
@@ -36,7 +36,7 @@ interface Row {
   [key: string]: string | null | number;
 }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const POLL_MS = 15_000;
 
 const STAGE_LABELS: Record<string, string> = {

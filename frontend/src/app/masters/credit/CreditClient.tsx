@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "danger" | "ghost"): React.CSSProperties => ({
   padding: "5px 12px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,

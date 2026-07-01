@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
@@ -23,7 +23,7 @@ interface Row { id: number; uid: string; bl_date: string | null; credit_time: st
 interface HedgingRecord { id: number; contract_number: string | null; hedge_rate: string | null; hedged_currency_amount: string | null; currency: string | null; hedged_date: string | null; }
 interface ContractSelection { record: HedgingRecord; amount: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const DUE_FIELDS = [
   { key: "confirmed_due_date",         label: "Confirmed Due Date"    },

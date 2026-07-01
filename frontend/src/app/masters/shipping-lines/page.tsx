@@ -1,8 +1,8 @@
-import ShippingLinesClient from "./ShippingLinesClient";
+﻿import ShippingLinesClient from "./ShippingLinesClient";
 
 async function getShippingLines() {
   try {
-    const res = await fetch("http://localhost:8000/api/shipping-lines/", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/shipping-lines/`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

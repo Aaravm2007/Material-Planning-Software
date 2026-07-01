@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
@@ -25,7 +25,7 @@ const TRANSPORT_COL_DEFS: ColDef[] = [
 interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; eway_bill: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; [key: string]: string | null | number; }
 interface ChaRecord { id: number; cha_name: string; agent_name: string | null; cha_charges: string | null; date: string | null; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const TRANSPORT_FIELDS = [
   { key: "eway_bill",                     label: "E-Way Bill",               amount: false },

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ interface Plan {
 }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PO_PI_DIALOG_FIELDS = [
   "supplier_name", "supplier_code",

@@ -1,8 +1,8 @@
-import OrderPlanningClient from "./OrderPlanningClient";
+﻿import OrderPlanningClient from "./OrderPlanningClient";
 
 async function getPlans() {
   try {
-    const res = await fetch("http://localhost:8000/api/order-plans/", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/order-plans/`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

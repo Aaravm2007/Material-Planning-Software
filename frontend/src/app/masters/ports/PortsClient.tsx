@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
 interface Port { id: number; name: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,

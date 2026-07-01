@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRole } from "@/components/RoleContext";
@@ -35,7 +35,7 @@ interface ShippingOption { id: number; uid: string; name: string | null; shippin
 interface ShippingLine { id: number; name: string; }
 interface Port { id: number; name: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const SHIPMENT_STATUSES = [
   { value: "Pre-Shipment",           color: "#71717a", bg: "#f4f4f5", border: "#e4e4e7" },

@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 interface SupplierModel { id: number; model_number: string; }
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger" | "action"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,

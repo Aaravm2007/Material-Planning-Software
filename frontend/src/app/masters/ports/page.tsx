@@ -1,8 +1,8 @@
-import PortsClient from "./PortsClient";
+﻿import PortsClient from "./PortsClient";
 
 async function getPorts() {
   try {
-    const res = await fetch("http://localhost:8000/api/ports/", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/ports/`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

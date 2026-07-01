@@ -1,10 +1,10 @@
-import ChaClient from "./ChaClient";
+﻿import ChaClient from "./ChaClient";
 
 export const dynamic = "force-dynamic";
 
 async function fetchCha() {
   try {
-    const res = await fetch("http://localhost:8000/api/cha/", { cache: "no-store" });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/cha/`, { cache: "no-store" });
     return res.ok ? res.json() : [];
   } catch { return []; }
 }

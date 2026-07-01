@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -8,7 +8,7 @@ interface Freight { id: number; date: string; freight_charge: string; }
 
 type PanelMode = "agents" | "freight";
 
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger" | "action" | "active"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,

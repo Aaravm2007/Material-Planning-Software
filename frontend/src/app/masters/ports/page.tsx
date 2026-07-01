@@ -5,7 +5,7 @@ async function getPorts() {
   try {
     const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/ports/`);
     if (!res.ok) return [];
-    return res.json();
+    return await res.json();
   } catch { return []; }
 }
 

@@ -5,7 +5,7 @@ async function getData() {
   try {
     const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/due_date`);
     if (!res.ok) return [];
-    return res.json();
+    return await res.json();
   } catch { return []; }
 }
 

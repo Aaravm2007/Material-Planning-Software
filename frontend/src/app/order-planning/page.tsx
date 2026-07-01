@@ -5,7 +5,7 @@ async function getPlans() {
   try {
     const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/order-plans/`);
     if (!res.ok) return [];
-    return res.json();
+    return await res.json();
   } catch { return []; }
 }
 

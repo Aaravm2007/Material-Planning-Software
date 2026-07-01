@@ -5,7 +5,7 @@ async function getRows(stage: string) {
   try {
     const res = await fetch(`http://localhost:8000/api/rows/stage/${stage}`, { cache: "no-store" });
     if (!res.ok) return [];
-    return res.json();
+    return await res.json();
   } catch { return []; }
 }
 

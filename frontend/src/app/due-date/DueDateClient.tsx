@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
@@ -23,7 +24,6 @@ interface Row { id: number; uid: string; bl_date: string | null; credit_time: st
 interface HedgingRecord { id: number; contract_number: string | null; hedge_rate: string | null; hedged_currency_amount: string | null; currency: string | null; hedged_date: string | null; }
 interface ContractSelection { record: HedgingRecord; amount: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const DUE_FIELDS = [
   { key: "confirmed_due_date",         label: "Confirmed Due Date"    },
@@ -95,7 +95,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   const [addContractId, setAddContractId] = useState<string>("");
 
   async function fetchHedgingRecords() {
-    const res = await fetch(`${API}/api/hedging/`);
+    const res = await apiFetch(`${API}/api/hedging/`);
     const data = res.ok ? await res.json() : [];
     setHedgingRecords(Array.isArray(data) ? data : []);
   }
@@ -156,7 +156,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSave() {
     if (!editModal) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/rows/${editModal.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
     });
@@ -169,7 +169,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function handleComplete(row: Row) {
-    await fetch(`${API}/api/rows/${row.uid as string}`, {
+    await apiFetch(`${API}/api/rows/${row.uid as string}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "complete" }),
     });
@@ -177,7 +177,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function handleBack(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "transportation" }),
     });

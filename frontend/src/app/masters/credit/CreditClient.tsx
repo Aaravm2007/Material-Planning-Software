@@ -1,11 +1,11 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "danger" | "ghost"): React.CSSProperties => ({
   padding: "5px 12px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -41,7 +41,7 @@ export default function CreditClient({ initialRecords }: { initialRecords: Credi
     setSaving(true);
     const body: Record<string, string> = { company: form.company.trim(), credit_amt: form.credit_amt.trim() };
     if (form.date) body.date = form.date;
-    const res = await fetch(`${API}/api/credit/`, {
+    const res = await apiFetch(`${API}/api/credit/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
@@ -54,7 +54,7 @@ export default function CreditClient({ initialRecords }: { initialRecords: Credi
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/credit/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/credit/${id}`, { method: "DELETE" });
     setRecords((r) => r.filter((x) => x.id !== id));
   }
 

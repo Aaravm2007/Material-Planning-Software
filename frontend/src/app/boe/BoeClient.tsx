@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 import InlineFilters from "@/components/InlineFilters";
@@ -17,7 +18,6 @@ const BOE_FILTER_DEFS: ColDef[] = [
 interface Row { id: number; uid: string; po_total_value: string | null; freight_charges: string | null; boe_no: string | null; dollar_rate: string | null; custom_exchange_rate: string | null; provisional_boe: string | null; actual_boe: string | null; [key: string]: string | null | number; }
 interface BoeEntry { id: number; uid: string; amount: string; note: string | null; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "action"): React.CSSProperties => ({
   padding: "5px 12px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -54,7 +54,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   const [saving, setSaving] = useState(false);
 
   async function openBoeModal(uid: string) {
-    const res = await fetch(`${API}/api/boe-entries/${uid}`);
+    const res = await apiFetch(`${API}/api/boe-entries/${uid}`);
     const entries = res.ok ? await res.json() : [];
     setBoeModal({ uid, entries });
   }
@@ -67,7 +67,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   async function handleAddEntry() {
     if (!boeModal || !newEntry.amount) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/boe-entries/`, {
+    const res = await apiFetch(`${API}/api/boe-entries/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uid: boeModal.uid, ...newEntry }),
     });
@@ -83,7 +83,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
 
   async function handleDeleteEntry(entryId: number) {
     if (!boeModal) return;
-    await fetch(`${API}/api/boe-entries/${entryId}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/boe-entries/${entryId}`, { method: "DELETE" });
     const remaining = boeModal.entries.filter((e) => e.id !== entryId);
     setBoeModal((m) => m ? { ...m, entries: remaining } : m);
     syncActualBoe(boeModal.uid, remaining);
@@ -92,7 +92,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSaveEdit() {
     if (!editModal) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/rows/${editModal.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
     });
@@ -105,7 +105,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function handleAdvance(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "transportation" }),
     });
@@ -113,7 +113,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function handleBack(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "approved_import" }),
     });

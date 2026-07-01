@@ -1,10 +1,10 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 
 interface Port { id: number; name: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -39,7 +39,7 @@ export default function PortsClient({ initialPorts }: { initialPorts: Port[] }) 
   async function handleCreate() {
     if (!name.trim()) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/ports/`, {
+    const res = await apiFetch(`${API}/api/ports/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: name.trim() }),
     });
@@ -53,7 +53,7 @@ export default function PortsClient({ initialPorts }: { initialPorts: Port[] }) 
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/ports/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/ports/${id}`, { method: "DELETE" });
     setPorts((p) => p.filter((x) => x.id !== id));
   }
 

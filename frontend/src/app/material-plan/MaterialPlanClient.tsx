@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { SHIPMENT_STATUSES } from "@/app/import-planning/ImportPlanningClient";
@@ -36,7 +37,6 @@ interface Row {
   [key: string]: string | null | number;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const POLL_MS = 15_000;
 
 const STAGE_LABELS: Record<string, string> = {
@@ -92,7 +92,7 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
 
   async function fetchRows() {
     try {
-      const res = await fetch(`${API}/api/rows/`, { cache: "no-store" });
+      const res = await apiFetch(`${API}/api/rows/`, { cache: "no-store" });
       if (res.ok) { setRows(await res.json()); setLastUpdated(new Date()); }
     } catch {}
   }

@@ -1,11 +1,11 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 interface SupplierModel { id: number; model_number: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger" | "action"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -47,7 +47,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   async function handleCreate() {
     if (!form.supplier_name.trim() || !form.supplier_code.trim()) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/suppliers/`, {
+    const res = await apiFetch(`${API}/api/suppliers/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
     if (res.ok) {
@@ -60,7 +60,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/suppliers/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/suppliers/${id}`, { method: "DELETE" });
     setSuppliers((s) => s.filter((x) => x.id !== id));
     if (modelsSupplier?.id === id) setModelsSupplier(null);
   }
@@ -68,7 +68,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   async function openModels(supplier: Supplier) {
     setModelsSupplier(supplier);
     setNewModel("");
-    const res = await fetch(`${API}/api/suppliers/${supplier.id}/models`);
+    const res = await apiFetch(`${API}/api/suppliers/${supplier.id}/models`);
     const data = res.ok ? await res.json() : [];
     setModels(Array.isArray(data) ? data : []);
   }
@@ -76,7 +76,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   async function handleAddModel() {
     if (!newModel.trim() || !modelsSupplier) return;
     setModelSaving(true);
-    const res = await fetch(`${API}/api/suppliers/${modelsSupplier.id}/models`, {
+    const res = await apiFetch(`${API}/api/suppliers/${modelsSupplier.id}/models`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model_number: newModel.trim() }),
     });
@@ -89,7 +89,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   }
 
   async function handleDeleteModel(id: number) {
-    await fetch(`${API}/api/suppliers/${modelsSupplier!.id}/models/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/suppliers/${modelsSupplier!.id}/models/${id}`, { method: "DELETE" });
     setModels((m) => m.filter((x) => x.id !== id));
   }
 

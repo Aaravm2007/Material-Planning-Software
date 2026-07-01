@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 
@@ -13,7 +14,6 @@ interface HedgingRecord {
   created_at: string | null;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -69,7 +69,7 @@ export default function HedgingClient({ initialRecords }: { initialRecords: Hedg
   async function handleCreate() {
     setSaving(true);
     const body = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim()));
-    const res = await fetch(`${API}/api/hedging/`, {
+    const res = await apiFetch(`${API}/api/hedging/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -83,7 +83,7 @@ export default function HedgingClient({ initialRecords }: { initialRecords: Hedg
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/hedging/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/hedging/${id}`, { method: "DELETE" });
     setRecords((r) => r.filter((x) => x.id !== id));
   }
 

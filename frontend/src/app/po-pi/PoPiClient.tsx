@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -9,7 +10,6 @@ import { useTableState, ColDef } from "@/components/useTableState";
 interface Row { id: number; uid: string; [key: string]: string | null | number; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PO_PI_COLS = [
   { key: "uid",                   label: "UID"              },
@@ -125,12 +125,12 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [newModelModal, setNewModelModal] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   async function fetchModels(supplier: Supplier) {
     try {
-      const res = await fetch(`${API}/api/suppliers/${supplier.id}/models`);
+      const res = await apiFetch(`${API}/api/suppliers/${supplier.id}/models`);
       const data = res.ok ? await res.json() : [];
       setSupplierModels(Array.isArray(data) ? data.map((m: { model_number: string }) => m.model_number) : []);
     } catch { setSupplierModels([]); }
@@ -172,7 +172,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   async function doCreate(saveModel = false) {
     setSaving(true);
     if (saveModel && selectedSupplier && form.supplier_model_number.trim()) {
-      await fetch(`${API}/api/suppliers/${selectedSupplier.id}/models`, {
+      await apiFetch(`${API}/api/suppliers/${selectedSupplier.id}/models`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model_number: form.supplier_model_number.trim() }),
       });
@@ -183,7 +183,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     // store pi_total_value and po_total_value (INR)
     if (form.pi_total_value) body.pi_total_value = form.pi_total_value;
     if (inrTotal) body.po_total_value = inrTotal;
-    const res = await fetch(`${API}/api/rows/`, {
+    const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
@@ -199,12 +199,12 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function handleDelete(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/rows/${uid}`, { method: "DELETE" });
     setRows((r) => r.filter((x) => x.uid !== uid));
   }
 
   async function handleGoToImport(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "pending_import" }),
     });

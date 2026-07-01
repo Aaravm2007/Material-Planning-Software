@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -18,7 +19,6 @@ interface Plan {
 }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const PO_PI_DIALOG_FIELDS = [
   "supplier_name", "supplier_code",
@@ -113,12 +113,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [newModelModal, setNewModelModal] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   async function fetchPoPiModels(supplier: Supplier) {
     try {
-      const res = await fetch(`${API}/api/suppliers/${supplier.id}/models`);
+      const res = await apiFetch(`${API}/api/suppliers/${supplier.id}/models`);
       const data = res.ok ? await res.json() : [];
       setPoPiModels(Array.isArray(data) ? data.map((m: { model_number: string }) => m.model_number) : []);
     } catch { setPoPiModels([]); }
@@ -132,7 +132,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     if (form.rate.trim()) body.rate = form.rate.trim();
     if (form.target_date) body.target_date = form.target_date;
     if (form.remark.trim()) body.remark = form.remark.trim();
-    const res = await fetch(`${API}/api/order-plans/`, {
+    const res = await apiFetch(`${API}/api/order-plans/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
@@ -145,7 +145,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/order-plans/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/order-plans/${id}`, { method: "DELETE" });
     setPlans((p) => p.filter((x) => x.id !== id));
   }
 
@@ -193,7 +193,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   async function doCreatePoPi(saveModel: boolean) {
     setPoPiSaving(true);
     if (saveModel && selectedPoPiSupplier && poPiForm.supplier_model_number.trim()) {
-      await fetch(`${API}/api/suppliers/${selectedPoPiSupplier.id}/models`, {
+      await apiFetch(`${API}/api/suppliers/${selectedPoPiSupplier.id}/models`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model_number: poPiForm.supplier_model_number.trim() }),
       });
@@ -203,7 +203,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     const inrTotal = calcPoTotalInr(poPiForm);
     if (poPiForm.pi_total_value) body.pi_total_value = poPiForm.pi_total_value;
     if (inrTotal) body.po_total_value = inrTotal;
-    const res = await fetch(`${API}/api/rows/`, {
+    const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {

@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 
@@ -8,7 +9,6 @@ interface Freight { id: number; date: string; freight_charge: string; }
 
 type PanelMode = "agents" | "freight";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const btnStyle = (v: "primary" | "ghost" | "danger" | "action" | "active"): React.CSSProperties => ({
   padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -58,7 +58,7 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   async function handleCreate() {
     if (!formName.trim()) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/shipping-lines/`, {
+    const res = await apiFetch(`${API}/api/shipping-lines/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: formName.trim() }),
     });
@@ -72,7 +72,7 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   }
 
   async function handleDelete(id: number) {
-    await fetch(`${API}/api/shipping-lines/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/shipping-lines/${id}`, { method: "DELETE" });
     setLines((l) => l.filter((x) => x.id !== id));
     if (activeLine?.id === id) setActiveLine(null);
   }
@@ -83,11 +83,11 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
     setNewAgent("");
     setFreightForm({ date: "", freight_charge: "" });
     if (mode === "agents") {
-      const res = await fetch(`${API}/api/shipping-lines/${line.id}/agents`);
+      const res = await apiFetch(`${API}/api/shipping-lines/${line.id}/agents`);
       const data = res.ok ? await res.json() : [];
       setAgents(Array.isArray(data) ? data : []);
     } else {
-      const res = await fetch(`${API}/api/shipping-lines/${line.id}/freights`);
+      const res = await apiFetch(`${API}/api/shipping-lines/${line.id}/freights`);
       const data = res.ok ? await res.json() : [];
       setFreights(Array.isArray(data) ? data : []);
     }
@@ -99,11 +99,11 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
     setNewAgent("");
     setFreightForm({ date: "", freight_charge: "" });
     if (mode === "agents") {
-      const res = await fetch(`${API}/api/shipping-lines/${activeLine.id}/agents`);
+      const res = await apiFetch(`${API}/api/shipping-lines/${activeLine.id}/agents`);
       const data = res.ok ? await res.json() : [];
       setAgents(Array.isArray(data) ? data : []);
     } else {
-      const res = await fetch(`${API}/api/shipping-lines/${activeLine.id}/freights`);
+      const res = await apiFetch(`${API}/api/shipping-lines/${activeLine.id}/freights`);
       const data = res.ok ? await res.json() : [];
       setFreights(Array.isArray(data) ? data : []);
     }
@@ -112,7 +112,7 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   async function handleAddAgent() {
     if (!newAgent.trim() || !activeLine) return;
     setAgentSaving(true);
-    const res = await fetch(`${API}/api/shipping-lines/${activeLine.id}/agents`, {
+    const res = await apiFetch(`${API}/api/shipping-lines/${activeLine.id}/agents`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agent_name: newAgent.trim() }),
     });
@@ -125,14 +125,14 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   }
 
   async function handleDeleteAgent(id: number) {
-    await fetch(`${API}/api/shipping-lines/${activeLine!.id}/agents/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/shipping-lines/${activeLine!.id}/agents/${id}`, { method: "DELETE" });
     setAgents((a) => a.filter((x) => x.id !== id));
   }
 
   async function handleAddFreight() {
     if (!freightForm.date || !freightForm.freight_charge.trim() || !activeLine) return;
     setFreightSaving(true);
-    const res = await fetch(`${API}/api/shipping-lines/${activeLine.id}/freights`, {
+    const res = await apiFetch(`${API}/api/shipping-lines/${activeLine.id}/freights`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(freightForm),
     });
@@ -145,7 +145,7 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   }
 
   async function handleDeleteFreight(id: number) {
-    await fetch(`${API}/api/shipping-lines/${activeLine!.id}/freights/${id}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/shipping-lines/${activeLine!.id}/freights/${id}`, { method: "DELETE" });
     setFreights((f) => f.filter((x) => x.id !== id));
   }
 

@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 import AmountInput from "@/components/AmountInput";
@@ -25,7 +26,6 @@ const TRANSPORT_COL_DEFS: ColDef[] = [
 interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; eway_bill: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; [key: string]: string | null | number; }
 interface ChaRecord { id: number; cha_name: string; agent_name: string | null; cha_charges: string | null; date: string | null; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const TRANSPORT_FIELDS = [
   { key: "eway_bill",                     label: "E-Way Bill",               amount: false },
@@ -93,7 +93,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
     setEditForm(form);
     setEditModal(row);
     if (chaRecords.length === 0) {
-      const res = await fetch(`${API}/api/cha/`);
+      const res = await apiFetch(`${API}/api/cha/`);
       const data = res.ok ? await res.json() : [];
       setChaRecords(Array.isArray(data) ? data : []);
     }
@@ -118,7 +118,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   async function handleSave() {
     if (!editModal) return;
     setSaving(true);
-    const res = await fetch(`${API}/api/rows/${editModal.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editForm),
     });
@@ -127,7 +127,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
       // auto-save new CHA to master if not already there
       if (editForm.cha_name && !chaRecords.find((c) => c.cha_name === editForm.cha_name)) {
         const today = new Date().toISOString().slice(0, 10);
-        const r = await fetch(`${API}/api/cha/`, {
+        const r = await apiFetch(`${API}/api/cha/`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cha_name: editForm.cha_name, cha_charges: editForm.cha_charges || null, date: today }),
         });
@@ -140,7 +140,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   }
 
   async function handleAdvance(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "due_date" }),
     });
@@ -148,7 +148,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   }
 
   async function handleBack(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "boe" }),
     });

@@ -1,8 +1,9 @@
-﻿import BoeClient from "./BoeClient";
+﻿import { apiGet } from "@/lib/apiFetch";
+import BoeClient from "./BoeClient";
 
 async function getData() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/boe`, { cache: "no-store" });
+    const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/boe`);
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

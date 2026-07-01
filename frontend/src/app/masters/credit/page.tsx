@@ -1,8 +1,9 @@
-﻿import CreditClient from "./CreditClient";
+﻿import { apiGet } from "@/lib/apiFetch";
+import CreditClient from "./CreditClient";
 
 async function getCredits() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/credit/`, { cache: "no-store" });
+    const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/credit/`);
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

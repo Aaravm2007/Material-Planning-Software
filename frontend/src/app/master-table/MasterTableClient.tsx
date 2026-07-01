@@ -1,11 +1,11 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect, useRef } from "react";
 import DataTable, { Row, COLUMNS } from "@/components/DataTable";
 import AmountInput from "@/components/AmountInput";
 import { useTableState, ColDef } from "@/components/useTableState";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const POLL_MS = 5_000;
 
 // All editable fields grouped by stage
@@ -137,7 +137,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
 
   async function fetchRows() {
     try {
-      const res = await fetch(`${API}/api/rows/`, { cache: "no-store" });
+      const res = await apiFetch(`${API}/api/rows/`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setRows(data);
@@ -157,7 +157,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
   }, []);
 
   async function handleReopen(uid: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "due_date" }),
     });
@@ -185,7 +185,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     for (const [k, v] of Object.entries(editForm)) {
       body[k] = v; // send all, including empty string (backend ignores null patches)
     }
-    const res = await fetch(`${API}/api/rows/${editRow.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${editRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });

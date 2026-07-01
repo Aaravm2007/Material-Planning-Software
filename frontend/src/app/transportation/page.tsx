@@ -1,8 +1,9 @@
-﻿import TransportationClient from "./TransportationClient";
+﻿import { apiGet } from "@/lib/apiFetch";
+import TransportationClient from "./TransportationClient";
 
 async function getData() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/transportation`, { cache: "no-store" });
+    const res = await apiGet(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/rows/stage/transportation`);
     if (!res.ok) return [];
     return res.json();
   } catch { return []; }

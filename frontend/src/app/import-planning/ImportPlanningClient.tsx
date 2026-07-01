@@ -1,4 +1,5 @@
 ﻿"use client";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState } from "react";
 import { useRole } from "@/components/RoleContext";
@@ -35,7 +36,6 @@ interface ShippingOption { id: number; uid: string; name: string | null; shippin
 interface ShippingLine { id: number; name: string; }
 interface Port { id: number; name: string; }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const SHIPMENT_STATUSES = [
   { value: "Pre-Shipment",           color: "#71717a", bg: "#f4f4f5", border: "#e4e4e7" },
@@ -108,7 +108,7 @@ export default function ImportPlanningClient({
   async function fetchAgentsForLine(lineName: string) {
     const sl = shippingLines.find((s) => s.name === lineName);
     if (!sl) { setDialogAgents([]); return; }
-    const res = await fetch(`${API}/api/shipping-lines/${sl.id}/agents`);
+    const res = await apiFetch(`${API}/api/shipping-lines/${sl.id}/agents`);
     const data = res.ok ? await res.json() : [];
     setDialogAgents(Array.isArray(data) ? data.map((a: { agent_name: string }) => a.agent_name) : []);
   }
@@ -119,9 +119,9 @@ export default function ImportPlanningClient({
     setFreightHistory([]);
     setFreightHistoryLine(null);
     const [optRes, slRes, portRes] = await Promise.all([
-      fetch(`${API}/api/shipping-options/${row.uid}`),
-      fetch(`${API}/api/shipping-lines/`),
-      fetch(`${API}/api/ports/`),
+      apiFetch(`${API}/api/shipping-options/${row.uid}`),
+      apiFetch(`${API}/api/shipping-lines/`),
+      apiFetch(`${API}/api/ports/`),
     ]);
     setOptions(optRes.ok ? await optRes.json() : []);
     const slData = slRes.ok ? await slRes.json() : [];
@@ -138,7 +138,7 @@ export default function ImportPlanningClient({
     }
     const sl = shippingLines.find((s) => s.name === lineName);
     if (!sl) return;
-    const res = await fetch(`${API}/api/shipping-lines/${sl.id}/freights`);
+    const res = await apiFetch(`${API}/api/shipping-lines/${sl.id}/freights`);
     const data = res.ok ? await res.json() : [];
     setFreightHistory(Array.isArray(data) ? data : []);
     setFreightHistoryLine(lineName);
@@ -153,7 +153,7 @@ export default function ImportPlanningClient({
     if (agentName && newOpt.shipping_line && !dialogAgents.includes(agentName)) {
       const sl = shippingLines.find((s) => s.name === newOpt.shipping_line);
       if (sl) {
-        await fetch(`${API}/api/shipping-lines/${sl.id}/agents`, {
+        await apiFetch(`${API}/api/shipping-lines/${sl.id}/agents`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ agent_name: agentName }),
         });
@@ -161,7 +161,7 @@ export default function ImportPlanningClient({
       }
     }
 
-    const res = await fetch(`${API}/api/shipping-options/`, {
+    const res = await apiFetch(`${API}/api/shipping-options/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uid: dialogRow.uid, ...newOpt }),
     });
@@ -191,7 +191,7 @@ export default function ImportPlanningClient({
     if (editOptId === null) return;
     const body: Record<string, string> = {};
     for (const [k, v] of Object.entries(editOptForm)) body[k] = v;
-    const res = await fetch(`${API}/api/shipping-options/${editOptId}`, {
+    const res = await apiFetch(`${API}/api/shipping-options/${editOptId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -203,13 +203,13 @@ export default function ImportPlanningClient({
   }
 
   async function handleDeleteOpt(optId: number) {
-    await fetch(`${API}/api/shipping-options/${optId}`, { method: "DELETE" });
+    await apiFetch(`${API}/api/shipping-options/${optId}`, { method: "DELETE" });
     setOptions((o) => o.filter((x) => x.id !== optId));
     if (editOptId === optId) setEditOptId(null);
   }
 
   async function handleSelectOption(optId: number) {
-    const res = await fetch(`${API}/api/shipping-options/${optId}/select`, { method: "POST" });
+    const res = await apiFetch(`${API}/api/shipping-options/${optId}/select`, { method: "POST" });
     if (res.ok && dialogRow) {
       const moved = pending.find((r) => r.uid === dialogRow.uid);
       const opt = options.find((o) => o.id === optId);
@@ -242,7 +242,7 @@ export default function ImportPlanningClient({
     const patch = warehousingChoice === "inbond"
       ? { inbond: "Y", home_consumption: "N", workflow_status: "boe" }
       : { inbond: "N", home_consumption: "Y", workflow_status: "boe" };
-    const res = await fetch(`${API}/api/rows/${warehousingRow.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${warehousingRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
@@ -255,7 +255,7 @@ export default function ImportPlanningClient({
 
   async function handleSkipWarehousing() {
     if (!warehousingRow) return;
-    await fetch(`${API}/api/rows/${warehousingRow.uid}`, {
+    await apiFetch(`${API}/api/rows/${warehousingRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "boe" }),
     });
@@ -264,7 +264,7 @@ export default function ImportPlanningClient({
   }
 
   async function handleBackToPoPi(uid: string) {
-    const res = await fetch(`${API}/api/rows/${uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "po_pi" }),
     });
@@ -272,7 +272,7 @@ export default function ImportPlanningClient({
   }
 
   async function handleReapproval(row: Row) {
-    const res = await fetch(`${API}/api/rows/${row.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${row.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workflow_status: "pending_import" }),
     });
@@ -294,14 +294,14 @@ export default function ImportPlanningClient({
       port: (row.port as string) ?? "",
     });
     if (ports.length === 0) {
-      const res = await fetch(`${API}/api/ports/`);
+      const res = await apiFetch(`${API}/api/ports/`);
       const data = res.ok ? await res.json() : [];
       setPorts(Array.isArray(data) ? data : []);
     }
   }
 
   async function handleShipmentStatus(uid: string, status: string) {
-    await fetch(`${API}/api/rows/${uid}`, {
+    await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ shipment_status: status }),
     });
@@ -313,7 +313,7 @@ export default function ImportPlanningClient({
     setEditSaving(true);
     const body: Record<string, string> = {};
     for (const [k, v] of Object.entries(editForm)) if (v.trim()) body[k] = v.trim();
-    const res = await fetch(`${API}/api/rows/${editRow.uid}`, {
+    const res = await apiFetch(`${API}/api/rows/${editRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -597,7 +597,7 @@ export default function ImportPlanningClient({
                         setDialogAgents([]);
                         if (name) {
                           const sl = shippingLines.find((s) => s.name === name);
-                          if (sl) fetch(`${API}/api/shipping-lines/${sl.id}/agents`).then((r) => r.ok ? r.json() : []).then((d) => setDialogAgents(Array.isArray(d) ? d.map((a: { agent_name: string }) => a.agent_name) : []));
+                          if (sl) apiFetch(`${API}/api/shipping-lines/${sl.id}/agents`).then((r) => r.ok ? r.json() : []).then((d) => setDialogAgents(Array.isArray(d) ? d.map((a: { agent_name: string }) => a.agent_name) : []));
                         }
                       }}>
                         <option value="">— company —</option>

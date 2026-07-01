@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useRole } from "./RoleContext";
+import { API } from "@/lib/apiFetch";
 
 const NAV = [
   { label: "Master Table",    href: "/master-table"    },
@@ -28,9 +30,33 @@ const MASTERS_NAV = [
   { label: "Credit",             href: "/masters/credit"         },
 ];
 
+type ServerStatus = "checking" | "online" | "offline";
+
+function useServerStatus() {
+  const [status, setStatus] = useState<ServerStatus>("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        const res = await fetch(`${API}/health`, { credentials: "include", cache: "no-store" });
+        if (!cancelled) setStatus(res.ok ? "online" : "offline");
+      } catch {
+        if (!cancelled) setStatus("offline");
+      }
+    }
+    check();
+    const id = setInterval(check, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  return status;
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { role, setRole } = useRole();
+  const serverStatus = useServerStatus();
 
   const linkStyle = (href: string, indent = false): React.CSSProperties => {
     const active = pathname === href || pathname.startsWith(href + "/");
@@ -106,6 +132,34 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
+
+      {/* Admin section */}
+      <div style={{ padding: "10px 16px 8px", borderTop: "1px solid #e4e4e7" }}>
+        <div style={{ fontSize: "10px", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.08em", textTransform: "uppercase", color: "#a1a1aa", marginBottom: "8px" }}>
+          Admin
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{
+            width: "7px", height: "7px", borderRadius: "50%", flexShrink: 0,
+            background: serverStatus === "online" ? "#22c55e" : serverStatus === "offline" ? "#ef4444" : "#f59e0b",
+            boxShadow: serverStatus === "online"
+              ? "0 0 0 2px #dcfce7"
+              : serverStatus === "offline"
+              ? "0 0 0 2px #fee2e2"
+              : "0 0 0 2px #fef3c7",
+          }} />
+          <span style={{ fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#52525b" }}>
+            Server
+          </span>
+          <span style={{
+            marginLeft: "auto", fontSize: "11px",
+            fontFamily: "var(--font-mono), monospace",
+            color: serverStatus === "online" ? "#16a34a" : serverStatus === "offline" ? "#dc2626" : "#d97706",
+          }}>
+            {serverStatus === "online" ? "Online" : serverStatus === "offline" ? "Offline" : "…"}
+          </span>
+        </div>
+      </div>
 
       {/* Role selector */}
       <div style={{ padding: "12px 16px", borderTop: "1px solid #e4e4e7" }}>

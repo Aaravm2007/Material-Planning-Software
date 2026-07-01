@@ -1,16 +1,13 @@
 export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-function redirectToLogin() {
+export function notifySessionExpired() {
   if (typeof window === "undefined") return;
-  if (!window.location.pathname.startsWith("/login")) {
-    window.location.href = "/login";
-  }
+  window.dispatchEvent(new CustomEvent("session-expired"));
 }
-
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const res = await fetch(url, { ...options, credentials: "include" });
-  if (res.status === 401 || res.status === 403) redirectToLogin();
+  if (res.status === 401 || res.status === 403) notifySessionExpired();
   return res;
 }
 

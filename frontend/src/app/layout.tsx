@@ -4,6 +4,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { RoleProvider } from "@/components/RoleContext";
 import TrackpadScrollFix from "@/components/TrackpadScrollFix";
+import SessionBanner from "@/components/SessionBanner";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -29,6 +30,7 @@ export default function RootLayout({
     >
       <body style={{ height: "100%", margin: 0, background: "#ffffff", display: "flex" }}>
         <RoleProvider>
+          <SessionBanner />
           <TrackpadScrollFix />
           <Sidebar />
           <main style={{ flex: 1, height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>

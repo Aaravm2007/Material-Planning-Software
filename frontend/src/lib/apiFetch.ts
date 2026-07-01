@@ -2,8 +2,9 @@ export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 function redirectToLogin() {
   if (typeof window === "undefined") return;
-  const returnUrl = encodeURIComponent(window.location.href);
-  window.location.href = `${API}/cdn-cgi/access/login?redirect_url=${returnUrl}`;
+  if (!window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
 }
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {

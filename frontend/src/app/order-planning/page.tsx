@@ -1,5 +1,5 @@
 ﻿import OrderPlanningClient from "./OrderPlanningClient";
 
 export default function OrderPlanningPage() {
-  return <OrderPlanningClient initialRows={[]} />;
+  return <OrderPlanningClient initialPlans={[]} />;
 }

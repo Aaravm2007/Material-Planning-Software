@@ -1,5 +1,5 @@
 ﻿import CreditClient from "./CreditClient";
 
 export default function CreditPage() {
-  return <CreditClient initialRows={[]} />;
+  return <CreditClient initialRecords={[]} />;
 }

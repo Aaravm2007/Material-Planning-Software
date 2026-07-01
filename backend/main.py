@@ -56,6 +56,7 @@ async def _run_migrations():
         "ALTER TABLE shipping_options ADD COLUMN currency VARCHAR",
         "ALTER TABLE shipping_options ADD COLUMN exchange_rate VARCHAR",
         "ALTER TABLE material_rows ADD COLUMN shipment_status VARCHAR",
+        "ALTER TABLE users ADD COLUMN email VARCHAR",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

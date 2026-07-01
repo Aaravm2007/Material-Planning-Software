@@ -55,7 +55,7 @@ function useServerStatus() {
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { role, setRole } = useRole();
+  const { role, email } = useRole();
   const serverStatus = useServerStatus();
 
   const linkStyle = (href: string, indent = false): React.CSSProperties => {
@@ -161,16 +161,22 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Role selector */}
-      <div style={{ padding: "12px 16px", borderTop: "1px solid #e4e4e7" }}>
+      {/* Signed-in user */}
+      <div style={{ padding: "10px 16px 12px", borderTop: "1px solid #e4e4e7" }}>
         <div style={{ fontSize: "10px", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.08em", textTransform: "uppercase", color: "#a1a1aa", marginBottom: "6px" }}>
-          Role
+          Signed in as
         </div>
-        <select value={role} onChange={(e) => setRole(e.target.value as "user" | "expert")}
-          style={{ width: "100%", padding: "5px 8px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "#ffffff", fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", cursor: "pointer", outline: "none" }}>
-          <option value="user">User</option>
-          <option value="expert">Expert</option>
-        </select>
+        <div style={{ fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {email || "—"}
+        </div>
+        <span style={{
+          display: "inline-block", padding: "2px 7px", borderRadius: "4px", fontSize: "11px",
+          fontFamily: "var(--font-mono), monospace",
+          background: role === "expert" ? "#09090b" : "#f4f4f5",
+          color: role === "expert" ? "#ffffff" : "#52525b",
+        }}>
+          {role}
+        </span>
       </div>
     </aside>
   );

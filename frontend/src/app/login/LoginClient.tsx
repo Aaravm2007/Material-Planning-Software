@@ -12,9 +12,8 @@ export default function LoginClient() {
 
   useEffect(() => {
     const redirectBack = encodeURIComponent(window.location.origin + "/master-table");
-    const cfTeamDomain = process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com";
     const cfAppDomain = process.env.NEXT_PUBLIC_CF_APP_DOMAIN ?? "mps.rocketlithum.co.in";
-    setLoginUrl(`https://${cfTeamDomain}/cdn-cgi/access/login/${cfAppDomain}?redirect_url=${redirectBack}`);
+    setLoginUrl(`https://${cfAppDomain}/cdn-cgi/access/login?redirect_url=${redirectBack}`);
 
     // Check if already authenticated
     fetch(`${API}/api/rows/?limit=1`, { credentials: "include" })

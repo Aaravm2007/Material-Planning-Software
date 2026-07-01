@@ -1,0 +1,14 @@
+import PortsClient from "./PortsClient";
+
+async function getPorts() {
+  try {
+    const res = await fetch("http://localhost:8000/api/ports/", { cache: "no-store" });
+    if (!res.ok) return [];
+    return res.json();
+  } catch { return []; }
+}
+
+export default async function PortsPage() {
+  const ports = await getPorts();
+  return <PortsClient initialPorts={ports} />;
+}

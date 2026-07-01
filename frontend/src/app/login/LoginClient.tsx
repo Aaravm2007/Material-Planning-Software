@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API } from "@/lib/apiFetch";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -11,11 +10,11 @@ export default function LoginClient() {
   const [loginUrl, setLoginUrl] = useState("");
 
   useEffect(() => {
-    const redirectBack = encodeURIComponent(window.location.origin + "/master-table");
     const cfAppDomain = process.env.NEXT_PUBLIC_CF_APP_DOMAIN ?? "mps.rocketlithum.co.in";
-    setLoginUrl(`https://${cfAppDomain}/cdn-cgi/access/login?redirect_url=${redirectBack}`);
+    // /auth-redirect is a FastAPI route — CF Access intercepts the unauthenticated
+    // request, shows OTP, then after auth redirects back here, which 302s to the frontend.
+    setLoginUrl(`https://${cfAppDomain}/auth-redirect`);
 
-    // Check if already authenticated
     fetch(`${API}/api/rows/?limit=1`, { credentials: "include" })
       .then((res) => {
         if (res.ok) {

@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from app.api.rows import router as rows_router
@@ -102,3 +103,10 @@ app.include_router(credit_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/auth-redirect")
+async def auth_redirect():
+    """After CF Access OTP auth, redirect the browser back to the frontend."""
+    frontend = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
+    return RedirectResponse(url=f"{frontend}/master-table")

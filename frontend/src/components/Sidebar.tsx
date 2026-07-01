@@ -131,6 +131,20 @@ export default function Sidebar() {
             {item.label}
           </Link>
         ))}
+
+        {/* Admin nav — experts only */}
+        {role === "expert" && (
+          <>
+            <div style={{ marginTop: "12px", marginBottom: "4px", padding: "0 12px", fontSize: "10px", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.08em", textTransform: "uppercase", color: "#a1a1aa" }}>
+              Admin
+            </div>
+            <Link href="/admin" style={linkStyle("/admin", true)}
+              onMouseEnter={(e) => onEnter(e, "/admin")}
+              onMouseLeave={(e) => onLeave(e, "/admin")}>
+              Users
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* Admin section */}

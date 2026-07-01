@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -11,6 +11,10 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 class CreateUserBody(BaseModel):
     username: str
     role: str = "user"
+
+
+class UpdateUserBody(BaseModel):
+    role: str
 
 
 @router.get("/me")
@@ -47,3 +51,16 @@ async def create_user(body: CreateUserBody, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     return {"id": user.id, "username": user.username, "role": user.role}
+
+
+@router.patch("/{user_id}")
+async def update_user(user_id: int, body: UpdateUserBody, db: AsyncSession = Depends(get_db)):
+    if body.role not in ("user", "expert"):
+        raise HTTPException(status_code=400, detail="role must be 'user' or 'expert'")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = body.role
+    await db.commit()
+    return {"id": user.id, "username": user.username, "email": user.email, "role": user.role}

@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { exportToExcel } from "@/lib/exportExcel";
 import { usePolling } from "@/lib/usePolling";
 
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
@@ -114,7 +115,10 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
           <p style={{ margin: "0 0 2px", fontSize: "11px", fontFamily: "var(--font-mono), monospace", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Masters</p>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b" }}>Suppliers</h1>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Supplier</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(suppliers, "suppliers", { supplier_name: "Supplier Name", supplier_code: "Supplier Code" })}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Supplier</button>
+        </div>
       </div>
 
       {/* Two-panel layout when models panel is open */}

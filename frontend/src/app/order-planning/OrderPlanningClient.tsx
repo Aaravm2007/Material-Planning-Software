@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface Plan {
   id: number;
@@ -280,7 +281,10 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fafafa" }}>
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0, letterSpacing: "-0.02em" }}>Order Planning</h1>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ New Order Plan</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(plans, "order-planning", Object.fromEntries(COLS.map(c => [c.key, c.label])))}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ New Order Plan</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>

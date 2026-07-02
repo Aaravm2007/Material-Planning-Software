@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
@@ -7,6 +7,7 @@ import { useRole } from "@/components/RoleContext";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { exportToExcel } from "@/lib/exportExcel";
 
 const PENDING_COL_DEFS: ColDef[] = [
   { key: "supplier_name",    label: "Supplier",      type: "text" },
@@ -359,9 +360,12 @@ export default function ImportPlanningClient({
       {/* Header */}
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>Import Planning</h1>
-        <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>
-          Role: <strong style={{ color: role === "expert" ? "#09090b" : "#71717a" }}>{role}</strong>
-        </span>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel([...pendingFilter.filteredRows, ...approvedFilter.filteredRows] as Record<string, unknown>[], "import-planning", { uid: "UID", supplier_name: "Supplier", supplier_code: "Supp. Code", pi_number: "PI Number", rocket_item_code: "Item Code", shipment_status: "Status", etd: "ETD", port: "Port", shipping_company: "Shipping Co.", bl_no: "BL No", bl_date: "BL Date", workflow_status: "Stage" })}>↓ Export</button>
+          <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>
+            Role: <strong style={{ color: role === "expert" ? "#09090b" : "#71717a" }}>{role}</strong>
+          </span>
+        </div>
       </div>
 
       {/* Two panels */}

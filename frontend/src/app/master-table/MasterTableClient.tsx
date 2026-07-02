@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect, useRef } from "react";
 import DataTable, { Row, COLUMNS } from "@/components/DataTable";
+import { exportToExcel } from "@/lib/exportExcel";
 import AmountInput from "@/components/AmountInput";
 import { useTableState, ColDef } from "@/components/useTableState";
 
@@ -252,6 +253,14 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}
           >
             ↺ Refresh
+          </button>
+          <button
+            onClick={() => exportToExcel(filteredRows, "master-table", Object.fromEntries(COLUMNS.map(c => [c.key, c.label])))}
+            style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}
+          >
+            ↓ Export
           </button>
         </div>
       </div>

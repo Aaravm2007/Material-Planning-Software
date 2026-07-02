@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { exportToExcel } from "@/lib/exportExcel";
 
 const DUEDATE_COL_DEFS: ColDef[] = [
   { key: "supplier_name",             label: "Supplier",            type: "text"   },
@@ -209,7 +210,10 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fafafa" }}>
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>Due Date</h1>
-        <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>{rows.length} rows</span>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>{rows.length} rows</span>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(filteredRows, "due-date", Object.fromEntries(ALL_COLS.map(c => [c.key, c.label])))}>↓ Export</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>

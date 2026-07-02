@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect, useRef } from "react";
 import { SHIPMENT_STATUSES } from "@/app/import-planning/ImportPlanningClient";
+import { exportToExcel } from "@/lib/exportExcel";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 
@@ -128,6 +129,12 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}>
             ↺ Refresh
+          </button>
+          <button onClick={() => exportToExcel(filtered, "material-plan", Object.fromEntries(MATPLAN_COL_DEFS.map(c => [c.key, c.label])))}
+            style={{ padding: "6px 12px", borderRadius: "7px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}>
+            ↓ Export
           </button>
         </div>
       </div>

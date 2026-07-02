@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
 
@@ -79,7 +80,10 @@ export default function CreditClient({ initialRecords }: { initialRecords: Credi
             <span>₹ {fmt(totalCredit)}</span>
           </p>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Entry</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(records, "credit", { company: "Company", credit_amt: "Credit Amount", date: "Date" })}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Entry</button>
+        </div>
       </div>
 
       {/* Table */}

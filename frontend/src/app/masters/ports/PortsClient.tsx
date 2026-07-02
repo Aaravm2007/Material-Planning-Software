@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { exportToExcel } from "@/lib/exportExcel";
 import { usePolling } from "@/lib/usePolling";
 
 interface Port { id: number; name: string; }
@@ -73,7 +74,10 @@ export default function PortsClient({ initialPorts }: { initialPorts: Port[] }) 
           <p style={{ margin: "0 0 2px", fontSize: "11px", fontFamily: "var(--font-mono), monospace", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Masters</p>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b" }}>Port Selection</h1>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Port</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(ports, "ports", { name: "Port Name" })}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Port</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>

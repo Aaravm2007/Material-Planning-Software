@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface ChaRecord {
   id: number;
@@ -82,7 +83,10 @@ export default function ChaClient({ initialRecords }: { initialRecords: ChaRecor
           <p style={{ margin: "0 0 2px", fontSize: "11px", fontFamily: "var(--font-mono), monospace", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Masters</p>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b" }}>CHA</h1>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add CHA</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(records, "cha", Object.fromEntries(COLS.map(c => [c.key, c.label])))}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add CHA</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>

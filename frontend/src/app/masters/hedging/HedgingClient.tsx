@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface HedgingRecord {
   id: number;
@@ -104,7 +105,10 @@ export default function HedgingClient({ initialRecords }: { initialRecords: Hedg
           <p style={{ margin: "0 0 2px", fontSize: "11px", fontFamily: "var(--font-mono), monospace", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Masters</p>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b" }}>Hedging</h1>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Record</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(records, "hedging", Object.fromEntries(FIELDS.map(f => [f.key, f.label])))}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Record</button>
+        </div>
       </div>
 
       {/* Table */}

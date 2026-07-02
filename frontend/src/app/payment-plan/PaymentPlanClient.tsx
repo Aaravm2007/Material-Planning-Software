@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface Row {
   id: number;
@@ -109,6 +110,12 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
           <span style={{ marginLeft: "8px", fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", alignSelf: "center", textTransform: "uppercase" }}>
             {sorted.length} rows
           </span>
+          <button onClick={() => exportToExcel(sorted, "payment-plan", { uid: "UID", supplier_name: "Supplier", supplier_code: "Supplier Code", pi_number: "PI Number", po_number: "PO Number", rocket_item_code: "Item Code", po_total_value: "PO Total Value", bl_date: "BL Date", credit_time: "Credit Time (days)", confirmed_due_date: "Confirmed Due Date", confirmed_payment_amt: "Payment Amount", confirmed_payment_exchange: "Payment Exchange Rate", workflow_status: "Stage" })}
+            style={{ padding: "5px 12px", borderRadius: "7px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer", fontWeight: 600 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}>
+            ↓ Export
+          </button>
         </div>
       </div>
 

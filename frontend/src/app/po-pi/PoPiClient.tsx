@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { exportToExcel } from "@/lib/exportExcel";
 
 interface Row { id: number; uid: string; [key: string]: string | null | number; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
@@ -281,7 +282,10 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fafafa" }}>
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>PO / PI</h1>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Row</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(filteredRows, "po-pi", Object.fromEntries(PO_PI_COLS.map(c => [c.key, c.label])))}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Row</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>

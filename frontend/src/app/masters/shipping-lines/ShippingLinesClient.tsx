@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { exportToExcel } from "@/lib/exportExcel";
 import { usePolling } from "@/lib/usePolling";
 
 interface ShippingLine { id: number; name: string; }
@@ -167,7 +168,10 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
           <p style={{ margin: "0 0 2px", fontSize: "11px", fontFamily: "var(--font-mono), monospace", color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Masters</p>
           <h1 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b" }}>Shipping Companies</h1>
         </div>
-        <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Shipping Company</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel(lines, "shipping-companies", { name: "Shipping Company" })}>↓ Export</button>
+          <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Shipping Company</button>
+        </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", gridTemplateColumns: panelOpen ? "1fr 340px" : "1fr", gap: "12px" }}>

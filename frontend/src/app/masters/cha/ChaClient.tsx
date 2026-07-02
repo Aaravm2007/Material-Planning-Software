@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ChaRecord {
   id: number;
@@ -43,6 +43,12 @@ export default function ChaClient({ initialRecords }: { initialRecords: ChaRecor
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/cha/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRecords(Array.isArray(data) ? data : []));
+  }, []);
 
   async function handleCreate() {
     if (!form.cha_name.trim()) return;

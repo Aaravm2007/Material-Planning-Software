@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ShippingLine { id: number; name: string; }
 interface Agent { id: number; agent_name: string; }
@@ -41,6 +41,12 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
   const [showModal, setShowModal] = useState(false);
   const [formName, setFormName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/shipping-lines/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setLines(Array.isArray(data) ? data : []));
+  }, []);
 
   const [activeLine, setActiveLine] = useState<ShippingLine | null>(null);
   const [panelMode, setPanelMode] = useState<PanelMode>("agents");

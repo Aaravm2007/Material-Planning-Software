@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 interface SupplierModel { id: number; model_number: string; }
@@ -38,6 +38,12 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   const [form, setForm] = useState({ supplier_name: "", supplier_code: "" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    apiFetch(`${API}/api/suppliers/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setSuppliers(Array.isArray(data) ? data : []));
+  }, []);
 
   // Models panel
   const [modelsSupplier, setModelsSupplier] = useState<Supplier | null>(null);

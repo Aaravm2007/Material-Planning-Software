@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Port { id: number; name: string; }
 
@@ -35,6 +35,12 @@ export default function PortsClient({ initialPorts }: { initialPorts: Port[] }) 
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/ports/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setPorts(Array.isArray(data) ? data : []));
+  }, []);
 
   async function handleCreate() {
     if (!name.trim()) return;

@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface HedgingRecord {
   id: number;
@@ -55,6 +55,12 @@ export default function HedgingClient({ initialRecords }: { initialRecords: Hedg
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<Record<string, string>>(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/hedging/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRecords(Array.isArray(data) ? data : []));
+  }, []);
 
   function handleFormChange(key: string, value: string) {
     const next = { ...form, [key]: value };

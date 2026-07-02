@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AmountInput from "@/components/AmountInput";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
@@ -32,6 +32,12 @@ export default function CreditClient({ initialRecords }: { initialRecords: Credi
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ company: "", credit_amt: "", date: "" });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API}/api/credit/`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRecords(Array.isArray(data) ? data : []));
+  }, []);
 
   const totalCredit = records.reduce((sum, r) => sum + (parseFloat(r.credit_amt) || 0), 0);
   const creditUsed = 0; // to be wired up later

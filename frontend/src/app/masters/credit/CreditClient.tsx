@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
@@ -33,11 +34,13 @@ export default function CreditClient({ initialRecords }: { initialRecords: Credi
   const [form, setForm] = useState({ company: "", credit_amt: "", date: "" });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  function fetchRecords() {
     apiFetch(`${API}/api/credit/`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setRecords(Array.isArray(data) ? data : []));
-  }, []);
+  }
+  useEffect(() => { fetchRecords(); }, []);
+  usePolling(fetchRecords, 10_000);
 
   const totalCredit = records.reduce((sum, r) => sum + (parseFloat(r.credit_amt) || 0), 0);
   const creditUsed = 0; // to be wired up later

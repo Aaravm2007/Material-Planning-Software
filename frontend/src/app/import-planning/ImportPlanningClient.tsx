@@ -1,7 +1,8 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import { useRole } from "@/components/RoleContext";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
@@ -104,6 +105,16 @@ export default function ImportPlanningClient({
   const [editRow, setEditRow] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState({ confirmed_shipping_time: "", estimated_destination_charges: "", bl_no: "", bl_date: "", insurance: "", confirmed_eta: "", port: "" });
   const [editSaving, setEditSaving] = useState(false);
+
+  async function fetchRows() {
+    const res = await apiFetch(`${API}/api/rows/`);
+    if (!res.ok) return;
+    const all: Row[] = await res.json();
+    setPending(dedup(all.filter((r) => r.workflow_status === "pending_import")));
+    setApproved(dedup(all.filter((r) => r.workflow_status === "approved_import")));
+  }
+  useEffect(() => { fetchRows(); }, []);
+  usePolling(fetchRows, 10_000);
 
   async function fetchAgentsForLine(lineName: string) {
     const sl = shippingLines.find((s) => s.name === lineName);

@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
@@ -124,9 +125,15 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [saving, setSaving] = useState(false);
   const [newModelModal, setNewModelModal] = useState(false);
 
+  async function fetchRows() {
+    const res = await apiFetch(`${API}/api/rows/`);
+    if (res.ok) setRows(await res.json());
+  }
   useEffect(() => {
+    fetchRows();
     apiFetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+  usePolling(fetchRows, 10_000);
 
   async function fetchModels(supplier: Supplier) {
     try {

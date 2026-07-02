@@ -1,7 +1,8 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 
 interface Row {
   id: number;
@@ -59,9 +60,17 @@ function isDueSoon(dateStr: string | null): boolean {
 }
 
 export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] }) {
+  const [rows, setRows] = useState<Row[]>(initialRows);
   const [filter, setFilter] = useState<"all" | "upcoming" | "overdue">("all");
 
-  const rowsWithDates = initialRows
+  async function fetchRows() {
+    const res = await apiFetch(`${API}/api/rows/`);
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { fetchRows(); }, []);
+  usePolling(fetchRows, 10_000);
+
+  const rowsWithDates = rows
     .map((r) => ({ ...r, _est_due: calcEstimatedDueDate(r) }))
     .filter((r) => r._est_due || r.confirmed_due_date || r.confirmed_payment_amt);
 

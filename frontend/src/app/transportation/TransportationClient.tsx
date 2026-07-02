@@ -1,7 +1,7 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
@@ -85,6 +85,13 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [chaRecords, setChaRecords] = useState<ChaRecord[]>([]);
+
+  async function fetchRows() {
+    const res = await apiFetch(`${API}/api/rows/`);
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { fetchRows(); }, []);
+  usePolling(fetchRows, 10_000);
 
   async function openEdit(row: Row) {
     const form: Record<string, string> = {};

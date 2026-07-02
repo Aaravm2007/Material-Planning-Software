@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 
 interface Port { id: number; name: string; }
 
@@ -36,11 +37,13 @@ export default function PortsClient({ initialPorts }: { initialPorts: Port[] }) 
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  function fetchPorts() {
     apiFetch(`${API}/api/ports/`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setPorts(Array.isArray(data) ? data : []));
-  }, []);
+  }
+  useEffect(() => { fetchPorts(); }, []);
+  usePolling(fetchPorts, 10_000);
 
   async function handleCreate() {
     if (!name.trim()) return;

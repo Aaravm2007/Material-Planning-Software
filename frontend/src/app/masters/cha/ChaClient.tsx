@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 
 interface ChaRecord {
   id: number;
@@ -44,11 +45,13 @@ export default function ChaClient({ initialRecords }: { initialRecords: ChaRecor
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  function fetchRecords() {
     apiFetch(`${API}/api/cha/`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setRecords(Array.isArray(data) ? data : []));
-  }, []);
+  }
+  useEffect(() => { fetchRecords(); }, []);
+  usePolling(fetchRecords, 10_000);
 
   async function handleCreate() {
     if (!form.cha_name.trim()) return;

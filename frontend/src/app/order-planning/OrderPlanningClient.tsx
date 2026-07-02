@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
 
@@ -112,9 +113,16 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [poPiModels, setPoPiModels] = useState<string[]>([]);
   const [newModelModal, setNewModelModal] = useState(false);
 
+  async function fetchPlans() {
+    const res = await apiFetch(`${API}/api/order-plans/`);
+    if (res.ok) setPlans(await res.json());
+  }
+
   useEffect(() => {
+    fetchPlans();
     apiFetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
+  usePolling(fetchPlans, 10_000);
 
   async function fetchPoPiModels(supplier: Supplier) {
     try {

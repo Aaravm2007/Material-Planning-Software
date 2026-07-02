@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 interface SupplierModel { id: number; model_number: string; }
@@ -39,11 +40,13 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  useEffect(() => {
+  function fetchSuppliers() {
     apiFetch(`${API}/api/suppliers/`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setSuppliers(Array.isArray(data) ? data : []));
-  }, []);
+  }
+  useEffect(() => { fetchSuppliers(); }, []);
+  usePolling(fetchSuppliers, 10_000);
 
   // Models panel
   const [modelsSupplier, setModelsSupplier] = useState<Supplier | null>(null);

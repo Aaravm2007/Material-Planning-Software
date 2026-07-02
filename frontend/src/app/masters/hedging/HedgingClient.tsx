@@ -2,6 +2,7 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 
 import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 
 interface HedgingRecord {
   id: number;
@@ -56,11 +57,13 @@ export default function HedgingClient({ initialRecords }: { initialRecords: Hedg
   const [form, setForm] = useState<Record<string, string>>(emptyForm());
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  function fetchRecords() {
     apiFetch(`${API}/api/hedging/`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setRecords(Array.isArray(data) ? data : []));
-  }, []);
+  }
+  useEffect(() => { fetchRecords(); }, []);
+  usePolling(fetchRecords, 10_000);
 
   function handleFormChange(key: string, value: string) {
     const next = { ...form, [key]: value };

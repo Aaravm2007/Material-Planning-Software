@@ -1,7 +1,8 @@
 ﻿"use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePolling } from "@/lib/usePolling";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 
@@ -47,6 +48,13 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], BOE_FILTER_DEFS, "boe");
+  async function fetchRows() {
+    const res = await apiFetch(`${API}/api/rows/`);
+    if (res.ok) setRows(await res.json());
+  }
+  useEffect(() => { fetchRows(); }, []);
+  usePolling(fetchRows, 10_000);
+
   const [boeModal, setBoeModal] = useState<{ uid: string; entries: BoeEntry[] } | null>(null);
   const [newEntry, setNewEntry] = useState({ amount: "", note: "" });
   const [editModal, setEditModal] = useState<Row | null>(null);

@@ -66,26 +66,11 @@ async def _run_migrations():
                 pass  # column already exists — safe to ignore
 
 
-async def _seed_users():
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from app.database import SessionLocal
-    async with SessionLocal() as session:
-        from sqlalchemy import select
-        result = await session.execute(select(User))
-        if not result.scalars().first():
-            session.add_all([
-                User(username="Admin", role="expert"),
-                User(username="User1", role="user"),
-            ])
-            await session.commit()
-
-
 @app.on_event("startup")
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await _run_migrations()
-    await _seed_users()
 
 
 app.include_router(rows_router)

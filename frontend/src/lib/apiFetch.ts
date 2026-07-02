@@ -6,9 +6,14 @@ export function notifySessionExpired() {
 }
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const res = await fetch(url, { ...options, credentials: "include" });
-  if (res.status === 401 || res.status === 403) notifySessionExpired();
-  return res;
+  try {
+    const res = await fetch(url, { ...options, credentials: "include" });
+    if (res.status === 401 || res.status === 403) notifySessionExpired();
+    return res;
+  } catch {
+    // Network error — backend unreachable
+    return new Response(JSON.stringify({ detail: "Cannot reach server" }), { status: 503 });
+  }
 }
 
 export function apiGet(url: string): Promise<Response> {

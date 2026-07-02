@@ -37,6 +37,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ supplier_name: "", supplier_code: "" });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // Models panel
   const [modelsSupplier, setModelsSupplier] = useState<Supplier | null>(null);
@@ -47,6 +48,7 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
   async function handleCreate() {
     if (!form.supplier_name.trim() || !form.supplier_code.trim()) return;
     setSaving(true);
+    setSaveError("");
     const res = await apiFetch(`${API}/api/suppliers/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
@@ -55,6 +57,9 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
       setSuppliers((s) => [...s, created].sort((a, b) => a.supplier_name.localeCompare(b.supplier_name)));
       setShowModal(false);
       setForm({ supplier_name: "", supplier_code: "" });
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setSaveError(err.detail ?? `Error ${res.status}`);
     }
     setSaving(false);
   }
@@ -206,8 +211,13 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
               Supplier Code *
               <input style={inputStyle} placeholder="Supplier code" value={form.supplier_code} onChange={(e) => setForm({ ...form, supplier_code: e.target.value })} />
             </label>
+            {saveError && (
+              <p style={{ margin: 0, fontSize: "12px", color: "#ef4444", fontFamily: "var(--font-sans), sans-serif" }}>
+                {saveError}
+              </p>
+            )}
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_code: "" }); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_code: "" }); setSaveError(""); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Add"}</button>
             </div>
           </div>

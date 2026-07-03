@@ -24,8 +24,14 @@ from app.deps import get_current_user
 app = FastAPI(title="Material Planning API")
 
 # Rate limiting — 120 req/min per CF user (or IP as fallback)
+def _rate_key(request) -> str:
+    email = request.headers.get("Cf-Access-Authenticated-User-Email")
+    if email:
+        return email
+    return request.client.host if request.client else "unknown"
+
 limiter = Limiter(
-    key_func=lambda r: r.headers.get("Cf-Access-Authenticated-User-Email", r.client.host),
+    key_func=_rate_key,
     default_limits=["120/minute"],
 )
 app.state.limiter = limiter

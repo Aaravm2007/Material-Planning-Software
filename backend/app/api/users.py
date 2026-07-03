@@ -1,16 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from app.database import get_db
 from app.models import User
+from app.deps import get_current_user, require_expert
 
 router = APIRouter(prefix="/api/users", tags=["users"])
-
-
-class CreateUserBody(BaseModel):
-    username: str
-    role: str = "user"
 
 
 class UpdateUserBody(BaseModel):
@@ -18,45 +14,28 @@ class UpdateUserBody(BaseModel):
 
 
 @router.get("/me")
-async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
-    email = request.headers.get("Cf-Access-Authenticated-User-Email", "")
-    if not email:
-        # Local dev: no CF Access header — return full access
-        return {"email": "local@dev", "role": "expert"}
-
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalars().first()
-    if not user:
-        # First login: auto-create with default role
-        username = email.split("@")[0]
-        user = User(username=username, email=email, role="user")
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-
-    return {"email": user.email, "role": user.role}
+async def get_me(current_user: User = Depends(get_current_user)):
+    return {"email": current_user.email, "role": current_user.role}
 
 
 @router.get("/")
-async def get_users(db: AsyncSession = Depends(get_db)):
+async def get_users(db: AsyncSession = Depends(get_db), _: User = Depends(require_expert)):
     result = await db.execute(select(User).order_by(User.id))
     users = result.scalars().all()
     return [{"id": u.id, "username": u.username, "email": u.email, "role": u.role} for u in users]
 
 
-@router.post("/", status_code=201)
-async def create_user(body: CreateUserBody, db: AsyncSession = Depends(get_db)):
-    user = User(username=body.username, role=body.role)
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return {"id": user.id, "username": user.username, "role": user.role}
-
-
 @router.patch("/{user_id}")
-async def update_user(user_id: int, body: UpdateUserBody, db: AsyncSession = Depends(get_db)):
+async def update_user(
+    user_id: int,
+    body: UpdateUserBody,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_expert),
+):
     if body.role not in ("user", "expert"):
         raise HTTPException(status_code=400, detail="role must be 'user' or 'expert'")
+    if caller.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     if not user:

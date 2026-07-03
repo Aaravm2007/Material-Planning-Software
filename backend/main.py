@@ -1,8 +1,11 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy import text
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from app.api.rows import router as rows_router
 from app.api.order_plans import router as order_plans_router
@@ -16,9 +19,18 @@ from app.api.hedging import router as hedging_router
 from app.api.cha import router as cha_router
 from app.api.credit import router as credit_router
 from app.database import engine, Base
-from app.models import User
+from app.deps import get_current_user
 
 app = FastAPI(title="Material Planning API")
+
+# Rate limiting — 120 req/min per CF user (or IP as fallback)
+limiter = Limiter(
+    key_func=lambda r: r.headers.get("Cf-Access-Authenticated-User-Email", r.client.host),
+    default_limits=["120/minute"],
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 _raw = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000")
 _origins = [o.strip() for o in _raw.split(",") if o.strip()]
@@ -27,9 +39,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+
+_auth = [Depends(get_current_user)]
 
 
 async def _run_migrations():
@@ -73,17 +87,17 @@ async def on_startup():
     await _run_migrations()
 
 
-app.include_router(rows_router)
-app.include_router(order_plans_router)
-app.include_router(shipping_options_router)
-app.include_router(boe_entries_router)
-app.include_router(users_router)
-app.include_router(suppliers_router)
-app.include_router(shipping_lines_router)
-app.include_router(ports_router)
-app.include_router(hedging_router)
-app.include_router(cha_router)
-app.include_router(credit_router)
+app.include_router(rows_router,             dependencies=_auth)
+app.include_router(order_plans_router,      dependencies=_auth)
+app.include_router(shipping_options_router, dependencies=_auth)
+app.include_router(boe_entries_router,      dependencies=_auth)
+app.include_router(users_router,            dependencies=_auth)
+app.include_router(suppliers_router,        dependencies=_auth)
+app.include_router(shipping_lines_router,   dependencies=_auth)
+app.include_router(ports_router,            dependencies=_auth)
+app.include_router(hedging_router,          dependencies=_auth)
+app.include_router(cha_router,              dependencies=_auth)
+app.include_router(credit_router,           dependencies=_auth)
 
 
 @app.get("/health")

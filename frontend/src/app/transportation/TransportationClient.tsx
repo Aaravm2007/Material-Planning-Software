@@ -1,13 +1,14 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
-const TRANSPORT_COL_DEFS: ColDef[] = [
+export const TRANSPORT_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",              label: "Supplier",          type: "text"   },
   { key: "supplier_code",              label: "Supp. Code",        type: "text"   },
   { key: "pi_number",                  label: "PI Number",         type: "text"   },
@@ -37,6 +38,19 @@ const TRANSPORT_FIELDS = [
   { key: "confirmed_destination_charges", label: "Confirmed Dest. Charges",  amount: true  },
   { key: "transportation_inbound",        label: "Transport Inbound",        amount: true  },
   { key: "transportation_outbound_home",  label: "Transport Outbound/Home",  amount: true  },
+];
+
+// total_calc is a client-side computed preview (not a real row field), so it carries no
+// filter and is kept as a trailing column to stay aligned with the filter row.
+export const TRANSPORT_COLS_BASE = [
+  { key: "supplier_name", label: "Supplier" },
+  { key: "supplier_code", label: "Supp. Code" },
+  { key: "pi_number", label: "PI Number" },
+  { key: "pi_quantity", label: "PI Qty" },
+  { key: "actual_boe", label: "Actual BOE" },
+  ...TRANSPORT_FIELDS,
+  { key: "landing_cost", label: "Landing Cost" },
+  { key: "total_calc", label: "Total" },
 ];
 
 const LANDING_COST_KEYS = new Set(["cha_charges", "other_charges", "confirmed_destination_charges", "transportation_inbound", "transportation_outbound_home"]);
@@ -80,6 +94,8 @@ const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderB
 
 export default function TransportationClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const columnOrder = useColumnOrder("transportation");
+  const TRANSPORT_COL_DEFS = useMemo(() => applyColumnOrder(TRANSPORT_COL_DEFS_BASE, columnOrder), [columnOrder]);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], TRANSPORT_COL_DEFS, "transportation");
   const [editModal, setEditModal] = useState<Row | null>(null);
@@ -126,9 +142,15 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   async function handleSave() {
     if (!editModal) return;
     setSaving(true);
+    const isInbond = editModal.inbond?.trim().toUpperCase() === "Y";
+    const isHome = editModal.home_consumption?.trim().toUpperCase() === "Y";
+    const requiredFields = ["eway_bill", "sap_inward_no", "cha_name", "cha_charges", "other_charges", "confirmed_destination_charges"];
+    if (isInbond) requiredFields.push("transportation_inbound");
+    else if (isHome) requiredFields.push("transportation_outbound_home");
+    const allFilled = requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, fields_entered: true }),
+      body: JSON.stringify({ ...editForm, fields_entered: allFilled }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -163,16 +185,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
     setRows((r) => r.filter((row) => row.uid !== uid));
   }
 
-  const ALL_COLS = [
-    { key: "supplier_name", label: "Supplier" },
-    { key: "supplier_code", label: "Supp. Code" },
-    { key: "pi_number", label: "PI Number" },
-    { key: "pi_quantity", label: "PI Qty" },
-    { key: "actual_boe", label: "Actual BOE" },
-    ...TRANSPORT_FIELDS,
-    { key: "total_calc", label: "Total" },
-    { key: "landing_cost", label: "Landing Cost" },
-  ];
+  const ALL_COLS = useMemo(() => applyColumnOrder(TRANSPORT_COLS_BASE, columnOrder), [columnOrder]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
@@ -203,7 +216,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
               })}
               <th style={{ ...TH, textAlign: "right" }}>Actions</th>
             </tr>
-            <InlineFilters colDefs={TRANSPORT_COL_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={1} />
+            <InlineFilters colDefs={TRANSPORT_COL_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={2} />
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (

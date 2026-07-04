@@ -1,17 +1,18 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import AmountInput from "@/components/AmountInput";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
 const CCY_OPTIONS = ["USD", "EUR", "CNY", "GBP", "AED", "INR"];
 const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
 
-const BOE_FILTER_DEFS: ColDef[] = [
+export const BOE_FILTER_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",                 label: "Supplier",              type: "text"   },
   { key: "supplier_code",                 label: "Supp. Code",            type: "text"   },
   { key: "pi_number",                     label: "PI Number",             type: "text"   },
@@ -22,6 +23,22 @@ const BOE_FILTER_DEFS: ColDef[] = [
   { key: "custom_exchange_rate",          label: "Custom Exchange Rate", type: "amount" },
   { key: "actual_boe",                    label: "Actual BOE",            type: "amount" },
   { key: "actual_boe_inr",                label: "Actual BOE (INR)",      type: "amount" },
+];
+
+// provisional_boe_calc is a client-side computed preview (not a real row field), so it
+// carries no filter and is kept as a trailing column to stay aligned with the filter row.
+export const BOE_COLS_BASE = [
+  { key: "supplier_name", label: "Supplier" },
+  { key: "supplier_code", label: "Supp. Code" },
+  { key: "pi_number", label: "PI Number" },
+  { key: "boe_no", label: "BOE No" },
+  { key: "dollar_rate_currency", label: "DR Currency" },
+  { key: "dollar_rate", label: "Dollar Rate" },
+  { key: "custom_exchange_rate_currency", label: "CER Currency" },
+  { key: "custom_exchange_rate", label: "Custom Exchange Rate" },
+  { key: "actual_boe", label: "Actual BOE (sum)" },
+  { key: "actual_boe_inr", label: "Actual BOE (INR)" },
+  { key: "provisional_boe_calc", label: "Provisional BOE (auto)" },
 ];
 
 interface Row {
@@ -69,6 +86,8 @@ function entryInrValue(e: { amount: string; currency: string | null; rate: strin
 
 export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const columnOrder = useColumnOrder("boe");
+  const BOE_FILTER_DEFS = useMemo(() => applyColumnOrder(BOE_FILTER_DEFS_BASE, columnOrder), [columnOrder]);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], BOE_FILTER_DEFS, "boe");
   async function fetchRows() {
@@ -142,9 +161,11 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSaveEdit() {
     if (!editModal) return;
     setSaving(true);
+    const requiredFields = ["boe_no", "dollar_rate_currency", "dollar_rate", "custom_exchange_rate_currency", "custom_exchange_rate"];
+    const allFilled = requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, fields_entered: true }),
+      body: JSON.stringify({ ...editForm, fields_entered: allFilled }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -170,21 +191,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     setRows((r) => r.filter((row) => row.uid !== uid));
   }
 
-  // provisional_boe_calc is a client-side computed preview (not a real row field), so it
-  // carries no filter and is kept as a trailing column to stay aligned with the filter row.
-  const BOE_COLS = [
-    { key: "supplier_name", label: "Supplier" },
-    { key: "supplier_code", label: "Supp. Code" },
-    { key: "pi_number", label: "PI Number" },
-    { key: "boe_no", label: "BOE No" },
-    { key: "dollar_rate_currency", label: "DR Currency" },
-    { key: "dollar_rate", label: "Dollar Rate" },
-    { key: "custom_exchange_rate_currency", label: "CER Currency" },
-    { key: "custom_exchange_rate", label: "Custom Exchange Rate" },
-    { key: "actual_boe", label: "Actual BOE (sum)" },
-    { key: "actual_boe_inr", label: "Actual BOE (INR)" },
-    { key: "provisional_boe_calc", label: "Provisional BOE (auto)" },
-  ];
+  const BOE_COLS = useMemo(() => applyColumnOrder(BOE_COLS_BASE, columnOrder), [columnOrder]);
 
   const entrySum = entries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
   const entryInrSum = entries.reduce((acc, e) => acc + entryInrValue(e), 0);

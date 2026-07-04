@@ -28,6 +28,7 @@ const MASTERS_NAV = [
   { label: "CHA",                href: "/masters/cha"            },
   { label: "Hedging",            href: "/masters/hedging"        },
   { label: "Credit",             href: "/masters/credit"         },
+  { label: "Table Order",        href: "/masters/table-order"    },
 ];
 
 type ServerStatus = "checking" | "online" | "offline";

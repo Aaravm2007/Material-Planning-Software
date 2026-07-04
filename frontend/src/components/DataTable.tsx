@@ -174,9 +174,10 @@ interface DataTableProps {
   filters?: Record<string, FilterValue>;
   distinctValues?: Record<string, string[]>;
   onFilter?: (key: string, value: FilterValue | null) => void;
+  columns?: { key: string; label: string }[];
 }
 
-export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDefs, filters, distinctValues, onFilter }: DataTableProps) {
+export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDefs, filters, distinctValues, onFilter, columns = COLUMNS }: DataTableProps) {
   const hasFilters = !!(colDefs && filters && distinctValues && onFilter);
   return (
     <div className="w-full h-full overflow-auto" style={{ background: "#ffffff" }}>
@@ -187,7 +188,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
               style={{ background: "#fafafa", borderRight: "1px solid #e4e4e7", borderBottom: "1px solid #e4e4e7", borderTopLeftRadius: "11px", fontFamily: "var(--font-mono), monospace", fontSize: "13px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#09090b", minWidth: "52px" }}>
               #
             </th>
-            {COLUMNS.map((col) => {
+            {columns.map((col) => {
               const isSorted = sort?.key === col.key;
               return (
                 <th key={col.key} className="px-4 py-3 text-left whitespace-nowrap"
@@ -216,7 +217,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={COLUMNS.length + 1} className="py-20 text-center"
+              <td colSpan={columns.length + 1} className="py-20 text-center"
                 style={{ background: "#ffffff", fontFamily: "var(--font-mono), monospace", fontSize: "14px", letterSpacing: "0.2em", textTransform: "uppercase", color: "#d4d4d8" }}>
                 No records
               </td>
@@ -229,7 +230,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
                   style={{ background: "#ffffff", borderRight: "1px solid #e4e4e7", fontFamily: "var(--font-mono), monospace", fontSize: "14px", color: "#a1a1aa", minWidth: "52px" }}>
                   {String(idx + 1).padStart(3, "0")}
                 </td>
-                {COLUMNS.map((col) => {
+                {columns.map((col) => {
                   const val = row[col.key];
                   const isMono = MONO_KEYS.has(col.key);
                   const isYN = YN_KEYS.has(col.key);

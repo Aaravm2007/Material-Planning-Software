@@ -221,3 +221,13 @@ class ShippingLineFreight(Base):
     date = Column(String, nullable=False)
     freight_charge = Column(String, nullable=False)
     created_at = Column(String, nullable=True)
+
+
+class TableColumnOrder(Base):
+    __tablename__ = "table_column_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String, unique=True, nullable=False, index=True)
+    column_order = Column(String, nullable=False)  # JSON-encoded list[str] of column keys
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(String, nullable=True)

@@ -1,13 +1,14 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
-const DUEDATE_COL_DEFS: ColDef[] = [
+export const DUEDATE_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",             label: "Supplier",            type: "text"   },
   { key: "supplier_code",             label: "Supp. Code",          type: "text"   },
   { key: "pi_number",                 label: "PI Number",           type: "text"   },
@@ -30,6 +31,19 @@ const DUE_FIELDS = [
   { key: "hedged",                     label: "Hedged"                },
   { key: "confirmed_payment_amt",      label: "Confirmed Payment Amt" },
   { key: "confirmed_payment_exchange", label: "Payment Exchange Rate" },
+];
+
+// _est_due_calc is a client-side computed preview (not a real row field), so it carries no
+// filter and is kept as a trailing column to stay aligned with the filter row.
+export const DUEDATE_COLS_BASE = [
+  { key: "supplier_name", label: "Supplier" },
+  { key: "supplier_code", label: "Supp. Code" },
+  { key: "pi_number", label: "PI Number" },
+  { key: "po_total_value", label: "PO Total Value" },
+  { key: "bl_date", label: "BL Date" },
+  { key: "credit_time", label: "Credit Time (days)" },
+  ...DUE_FIELDS,
+  { key: "_est_due_calc", label: "Completed Due Date" },
 ];
 
 function calcPaymentAmt(form: Record<string, string>, row: Row): string {
@@ -82,6 +96,8 @@ const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderB
 
 export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const columnOrder = useColumnOrder("due_date");
+  const DUEDATE_COL_DEFS = useMemo(() => applyColumnOrder(DUEDATE_COL_DEFS_BASE, columnOrder), [columnOrder]);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], DUEDATE_COL_DEFS, "due_date");
   const [editModal, setEditModal] = useState<Row | null>(null);
@@ -162,9 +178,10 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSave() {
     if (!editModal) return;
     setSaving(true);
+    const allFilled = DUE_FIELDS.every((f) => (editForm[f.key] ?? "").trim() !== "");
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, fields_entered: true }),
+      body: JSON.stringify({ ...editForm, fields_entered: allFilled }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -192,16 +209,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
 
   const isHedgedYes = editForm.hedged === "Y";
 
-  const ALL_COLS = [
-    { key: "supplier_name", label: "Supplier" },
-    { key: "supplier_code", label: "Supp. Code" },
-    { key: "pi_number", label: "PI Number" },
-    { key: "po_total_value", label: "PO Total Value" },
-    { key: "bl_date", label: "BL Date" },
-    { key: "credit_time", label: "Credit Time (days)" },
-    { key: "_est_due_calc", label: "Completed Due Date" },
-    ...DUE_FIELDS,
-  ];
+  const ALL_COLS = useMemo(() => applyColumnOrder(DUEDATE_COLS_BASE, columnOrder), [columnOrder]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
@@ -232,7 +240,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
               })}
               <th style={{ ...TH, textAlign: "right" }}>Actions</th>
             </tr>
-            <InlineFilters colDefs={DUEDATE_COL_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={1} />
+            <InlineFilters colDefs={DUEDATE_COL_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={2} />
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (

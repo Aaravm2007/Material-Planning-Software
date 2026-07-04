@@ -1,19 +1,20 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
 interface Row { id: number; uid: string; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
 
-const PO_PI_COLS = [
+export const PO_PI_COLS_BASE = [
   { key: "date_of_po",            label: "Date of PO"       },
   { key: "supplier_name",         label: "Supplier Name"    },
   { key: "rocket_item_code",      label: "Rocket Item Code" },
@@ -92,7 +93,7 @@ const inputStyle: React.CSSProperties = {
 const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
 
-const POPI_COL_DEFS: ColDef[] = [
+export const POPI_COL_DEFS_BASE: ColDef[] = [
   { key: "date_of_po",            label: "Date of PO",        type: "date"   },
   { key: "supplier_name",         label: "Supplier Name",     type: "text"   },
   { key: "rocket_item_code",      label: "Rocket Item Code",  type: "text"   },
@@ -114,6 +115,9 @@ const POPI_COL_DEFS: ColDef[] = [
 export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const columnOrder = useColumnOrder("po_pi");
+  const PO_PI_COLS = useMemo(() => applyColumnOrder(PO_PI_COLS_BASE, columnOrder), [columnOrder]);
+  const POPI_COL_DEFS = useMemo(() => applyColumnOrder(POPI_COL_DEFS_BASE, columnOrder), [columnOrder]);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], POPI_COL_DEFS, "po_pi");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -260,9 +264,10 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSaveEdit() {
     if (!editModal) return;
     setSaving(true);
+    const allFilled = DIALOG_FIELDS.every((k) => (editForm[k] ?? "").trim() !== "");
     const res = await apiFetch(`${API}/api/rows/${editModal.uid as string}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, fields_entered: true }),
+      body: JSON.stringify({ ...editForm, fields_entered: allFilled }),
     });
     if (res.ok) {
       const updated = await res.json();

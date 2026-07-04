@@ -1,13 +1,14 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRole } from "@/components/RoleContext";
 import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
 const PENDING_COL_DEFS: ColDef[] = [
   { key: "supplier_name",    label: "Supplier",      type: "text" },
@@ -16,13 +17,14 @@ const PENDING_COL_DEFS: ColDef[] = [
   { key: "rocket_item_code", label: "Item Code",     type: "text" },
 ];
 
-const APPROVED_COL_DEFS: ColDef[] = [
+export const APPROVED_COL_DEFS_BASE: ColDef[] = [
   { key: "shipment_status",              label: "Status",          type: "select", options: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"] },
   { key: "supplier_name",                label: "Supplier",        type: "text"   },
   { key: "supplier_code",                label: "Supp. Code",      type: "text"   },
   { key: "pi_number",                    label: "PI Number",       type: "text"   },
   { key: "etd",                          label: "ETD",             type: "date"   },
   { key: "port",                         label: "Port",            type: "text"   },
+  { key: "confirmed_shipping_time",      label: "Shipping Time",   type: "amount" },
   { key: "shipping_company",             label: "Shipping Co.",    type: "text"   },
   { key: "freight_charges",              label: "Freight",         type: "amount" },
   { key: "estimated_destination_charges",label: "Dest. Charges",   type: "amount" },
@@ -31,6 +33,24 @@ const APPROVED_COL_DEFS: ColDef[] = [
   { key: "insurance",                    label: "Insurance",       type: "amount" },
   { key: "estimated_eta",                label: "Est. ETA",        type: "date"   },
   { key: "confirmed_eta",                label: "Conf. ETA",       type: "date"   },
+];
+
+export const APPROVED_COLS_BASE = [
+  { key: "shipment_status", label: "Status" },
+  { key: "supplier_name", label: "Supplier" },
+  { key: "supplier_code", label: "Supp. Code" },
+  { key: "pi_number", label: "PI Number" },
+  { key: "etd", label: "ETD" },
+  { key: "port", label: "Port" },
+  { key: "confirmed_shipping_time", label: "Shipping Time" },
+  { key: "shipping_company", label: "Shipping Co." },
+  { key: "estimated_destination_charges", label: "Dest. Charges" },
+  { key: "freight_charges", label: "Freight" },
+  { key: "bl_no", label: "BL No" },
+  { key: "bl_date", label: "BL Date" },
+  { key: "insurance", label: "Insurance" },
+  { key: "estimated_eta", label: "Est. ETA" },
+  { key: "confirmed_eta", label: "Conf. ETA" },
 ];
 
 interface Row { id: number; uid: string; supplier_name: string | null; supplier_code: string | null; rocket_item_code: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
@@ -81,6 +101,9 @@ export default function ImportPlanningClient({
   const dedup = (rows: Row[]) => rows.filter((r, i, a) => a.findIndex((x) => x.uid === r.uid) === i);
   const [pending, setPending] = useState<Row[]>(dedup(initialPending));
   const [approved, setApproved] = useState<Row[]>(dedup(initialApproved));
+
+  const columnOrder = useColumnOrder("import_planning");
+  const APPROVED_COL_DEFS = useMemo(() => applyColumnOrder(APPROVED_COL_DEFS_BASE, columnOrder), [columnOrder]);
 
   const pendingFilter = useTableState(pending as unknown as Record<string, unknown>[], PENDING_COL_DEFS, "import_pending");
   const approvedFilter = useTableState(approved as unknown as Record<string, unknown>[], APPROVED_COL_DEFS, "import_approved");
@@ -323,7 +346,8 @@ export default function ImportPlanningClient({
   async function handleSaveEdit() {
     if (!editRow) return;
     setEditSaving(true);
-    const body: Record<string, string | boolean> = { fields_entered: true };
+    const allFilled = Object.values(editForm).every((v) => v.trim() !== "");
+    const body: Record<string, string | boolean> = { fields_entered: allFilled };
     for (const [k, v] of Object.entries(editForm)) if (v.trim()) body[k] = v.trim();
     const res = await apiFetch(`${API}/api/rows/${editRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -336,23 +360,7 @@ export default function ImportPlanningClient({
     setEditSaving(false);
   }
 
-  const APPROVED_COLS = [
-    { key: "shipment_status", label: "Status" },
-    { key: "supplier_name", label: "Supplier" },
-    { key: "supplier_code", label: "Supp. Code" },
-    { key: "pi_number", label: "PI Number" },
-    { key: "etd", label: "ETD" },
-    { key: "port", label: "Port" },
-    { key: "confirmed_shipping_time", label: "Shipping Time" },
-    { key: "shipping_company", label: "Shipping Co." },
-    { key: "estimated_destination_charges", label: "Dest. Charges" },
-    { key: "freight_charges", label: "Freight" },
-    { key: "bl_no", label: "BL No" },
-    { key: "bl_date", label: "BL Date" },
-    { key: "insurance", label: "Insurance" },
-    { key: "estimated_eta", label: "Est. ETA" },
-    { key: "confirmed_eta", label: "Conf. ETA" },
-  ];
+  const APPROVED_COLS = useMemo(() => applyColumnOrder(APPROVED_COLS_BASE, columnOrder), [columnOrder]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>

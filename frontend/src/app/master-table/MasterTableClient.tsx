@@ -1,11 +1,12 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import DataTable, { Row, COLUMNS } from "@/components/DataTable";
 import { exportToExcel } from "@/lib/exportExcel";
 import AmountInput from "@/components/AmountInput";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
 const POLL_MS = 5_000;
 
@@ -118,12 +119,14 @@ const SELECT_KEYS: Record<string, string[]> = {
 };
 const AMOUNT_KEYS = new Set(["po_quantity","po_rate","po_total_value","pi_quantity","pi_rate","pi_total_value","exchange_rate","credit_time","estimated_destination_charges","freight_charges","insurance","dollar_rate","custom_exchange_rate","provisional_boe","actual_boe","transportation_inbound","transportation_outbound_home","cha_charges","other_charges","confirmed_destination_charges","total_transport","landing_cost","confirmed_payment_amt","confirmed_payment_exchange","advance_given"]);
 
-const MASTER_COL_DEFS: ColDef[] = COLUMNS.map((c) => ({
-  key: c.key,
-  label: c.label,
-  type: SELECT_KEYS[c.key] ? "select" : DATE_KEYS.has(c.key) ? "date" : AMOUNT_KEYS.has(c.key) ? "amount" : "text",
-  options: SELECT_KEYS[c.key],
-}));
+function toColDefs(cols: { key: string; label: string }[]): ColDef[] {
+  return cols.map((c) => ({
+    key: c.key,
+    label: c.label,
+    type: SELECT_KEYS[c.key] ? "select" : DATE_KEYS.has(c.key) ? "date" : AMOUNT_KEYS.has(c.key) ? "amount" : "text",
+    options: SELECT_KEYS[c.key],
+  }));
+}
 
 const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
 
@@ -139,6 +142,9 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const columnOrder = useColumnOrder("master_table");
+  const columns = useMemo(() => applyColumnOrder(COLUMNS, columnOrder), [columnOrder]);
+  const MASTER_COL_DEFS = useMemo(() => toColDefs(columns), [columns]);
 
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], MASTER_COL_DEFS, "master");
@@ -355,7 +361,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
             ↺ Refresh
           </button>
           <button
-            onClick={() => exportToExcel(filteredRows, "master-table", Object.fromEntries(COLUMNS.map(c => [c.key, c.label])))}
+            onClick={() => exportToExcel(filteredRows, "master-table", Object.fromEntries(columns.map(c => [c.key, c.label])))}
             style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}
@@ -397,6 +403,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
           rows={filteredRows as Row[]} onReopen={handleReopen} onEdit={openEdit}
           sort={sort} onSort={setSort}
           colDefs={MASTER_COL_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter}
+          columns={columns}
         />
       </div>
 

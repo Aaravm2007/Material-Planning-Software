@@ -1,11 +1,12 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
 import { exportToExcel } from "@/lib/exportExcel";
+import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
 interface Plan {
   id: number;
@@ -82,7 +83,7 @@ const inputStyle: React.CSSProperties = {
 const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", whiteSpace: "nowrap" };
 
-const COLS = [
+export const ORDER_PLANNING_COLS_BASE = [
   { key: "supplier_name",          label: "Supplier"        },
   { key: "supplier_model_number",  label: "Model No."       },
   { key: "quantity",               label: "Planned Qty"     },
@@ -94,6 +95,34 @@ const COLS = [
   { key: "created_at",             label: "Created"         },
 ];
 
+function renderPlanCell(col: { key: string; label: string }, p: Plan) {
+  switch (col.key) {
+    case "supplier_name":
+      return <td key={col.key} style={TD}>{p.supplier_name}</td>;
+    case "supplier_model_number":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "quantity":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "ordered_quantity":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "quantity_diff": {
+      const d = parseFloat(p.quantity_diff ?? "");
+      const color = !p.quantity_diff ? "#d4d4d8" : d === 0 ? "#16a34a" : d > 0 ? "#ef4444" : "#f97316";
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, color }}>{p.quantity_diff != null ? (parseFloat(p.quantity_diff) > 0 ? "+" : "") + p.quantity_diff : "—"}</td>;
+    }
+    case "rate":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.rate ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "target_date":
+      return <td key={col.key} style={TD}>{p.target_date ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "remark":
+      return <td key={col.key} style={{ ...TD, color: p.remark ? "#09090b" : "#d4d4d8", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{p.remark ?? "—"}</td>;
+    case "created_at":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{fmtDate(p.created_at)}</td>;
+    default:
+      return <td key={col.key} style={TD}>—</td>;
+  }
+}
+
 function fmtDate(s: string | null) {
   if (!s) return null;
   try { return new Date(s).toLocaleDateString(); } catch { return s; }
@@ -103,6 +132,8 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>(initialPlans);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const columnOrder = useColumnOrder("order_planning");
+  const COLS = useMemo(() => applyColumnOrder(ORDER_PLANNING_COLS_BASE, columnOrder), [columnOrder]);
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
@@ -318,15 +349,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, color: "#a1a1aa", fontFamily: "var(--font-mono), monospace", fontSize: "11px" }}>{String(i + 1).padStart(3, "0")}</td>
-                <td style={TD}>{p.supplier_name}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, color: (() => { const d = parseFloat(p.quantity_diff ?? ""); return !p.quantity_diff ? "#d4d4d8" : d === 0 ? "#16a34a" : d > 0 ? "#ef4444" : "#f97316"; })() }}>{p.quantity_diff != null ? (parseFloat(p.quantity_diff) > 0 ? "+" : "") + p.quantity_diff : "—"}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.rate ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                <td style={TD}>{p.target_date ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                <td style={{ ...TD, color: p.remark ? "#09090b" : "#d4d4d8", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{p.remark ?? "—"}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{fmtDate(p.created_at)}</td>
+                {COLS.map((c) => renderPlanCell(c, p))}
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                     <button style={btnStyle("action")} onClick={() => openPoPiModal(p)}>Go to PO/PI →</button>

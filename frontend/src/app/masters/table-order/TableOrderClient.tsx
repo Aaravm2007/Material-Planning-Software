@@ -40,12 +40,16 @@ export default function TableOrderClient() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const activeDef = TABLE_DEFS.find((t) => t.id === activeId)!;
 
   useEffect(() => {
     let cancelled = false;
     setLoaded(false);
+    setSaveError(null);
+    setSavedAt(null);
     apiFetch(`${API}/api/table-order/${activeId}`)
       .then((res) => (res.ok ? res.json() : { column_order: null }))
       .then((data) => {
@@ -75,10 +79,18 @@ export default function TableOrderClient() {
 
   async function handleSave() {
     setSaving(true);
-    await apiFetch(`${API}/api/table-order/${activeId}`, {
+    setSaveError(null);
+    const res = await apiFetch(`${API}/api/table-order/${activeId}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ column_order: draft.map((c) => c.key) }),
     });
+    if (res.ok) {
+      setSavedAt(Date.now());
+    } else if (res.status === 403) {
+      setSaveError("You don't have permission to save this (expert access required).");
+    } else {
+      setSaveError("Save failed — please try again.");
+    }
     setSaving(false);
   }
 
@@ -142,7 +154,9 @@ export default function TableOrderClient() {
       </div>
 
       {isExpert && (
-        <div style={{ flexShrink: 0, display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <div style={{ flexShrink: 0, display: "flex", gap: "12px", justifyContent: "flex-end", alignItems: "center" }}>
+          {saveError && <span style={{ fontSize: "12px", color: "#ef4444" }}>{saveError}</span>}
+          {!saveError && savedAt && <span style={{ fontSize: "12px", color: "#16a34a" }}>Saved</span>}
           <button style={btnStyle("ghost")} onClick={handleReset}>Reset to Default</button>
           <button style={btnStyle("primary")} onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save Order"}</button>
         </div>

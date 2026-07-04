@@ -280,21 +280,40 @@ async def delete_row(uid: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
 
+STAGE_FIELDS: dict[str, list[str]] = {
+    "po_pi": PO_PI_FIELDS,
+    "pending_import": IMPORT_FIELDS,
+    "boe": BOE_FIELDS,
+    "transportation": TRANSPORT_FIELDS,
+    "due_date": DUE_DATE_FIELDS,
+}
+
+
 @router.get("/export")
-async def export_rows(type: str = "data", db: AsyncSession = Depends(get_db)):
-    """Download all rows (type=data) or an empty header template (type=template) as CSV."""
+async def export_rows(type: str = "data", stage: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    """Download rows (type=data) or an empty header template (type=template) as CSV.
+
+    If `stage` is given, the CSV only has that stage's columns (e.g. just the
+    PO/PI fields), and type=data is filtered to rows currently in that stage.
+    """
+    fields = STAGE_FIELDS.get(stage, EXPORT_FIELDS) if stage else EXPORT_FIELDS
+    headers = ["workflow_status"] + fields
     buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=CSV_HEADERS, extrasaction="ignore")
+    writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
     writer.writeheader()
     if type == "data":
-        result = await db.execute(select(MaterialRow))
+        query = select(MaterialRow)
+        if stage:
+            query = query.where(MaterialRow.workflow_status == stage)
+        result = await db.execute(query)
         for row in result.scalars().all():
             writer.writerow({
                 "workflow_status": row.workflow_status or "",
-                **{f: (getattr(row, f, None) or "") for f in EXPORT_FIELDS},
+                **{f: (getattr(row, f, None) or "") for f in fields},
             })
     buf.seek(0)
-    filename = "master_template.csv" if type == "template" else "master_export.csv"
+    prefix = stage or "master"
+    filename = f"{prefix}_{'template' if type == 'template' else 'export'}.csv"
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",
@@ -314,7 +333,7 @@ async def import_rows(
     reader = csv.DictReader(io.StringIO(text_data))
     imported = 0
     for csv_row in reader:
-        if not any(v.strip() for v in csv_row.values()):
+        if not any((v or "").strip() for v in csv_row.values()):
             continue
         stage = _detect_stage(csv_row)
         new_row = MaterialRow(

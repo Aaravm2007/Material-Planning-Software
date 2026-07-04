@@ -17,7 +17,7 @@ export function notifySessionExpired() {
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   try {
-    const res = await fetch(url, { ...options, credentials: "include" });
+    const res = await fetch(url, { cache: "no-store", ...options, credentials: "include" });
     if (res.status === 401 || res.status === 403) {
       notifySessionExpired();
     } else if (res.ok) {

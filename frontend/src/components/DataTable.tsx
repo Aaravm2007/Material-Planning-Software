@@ -3,7 +3,6 @@
 export type Row = Record<string, string | null> & { id: number };
 
 export const COLUMNS: { key: string; label: string }[] = [
-  { key: "uid",                           label: "UID"                      },
   { key: "workflow_status",               label: "Stage"                    },
   // PO / PI
   { key: "srno",                          label: "Sr No"                    },
@@ -162,18 +161,6 @@ function StageBadge({ value }: { value: string | null }) {
   );
 }
 
-function UidCell({ value }: { value: string | null }) {
-  if (!value) return <span style={{ color: "#d4d4d8" }}>—</span>;
-  return (
-    <span style={{
-      fontFamily: "var(--font-mono), monospace", fontSize: "11px",
-      color: "#a1a1aa", letterSpacing: "0.02em",
-    }} title={value}>
-      {value.slice(0, 8)}…
-    </span>
-  );
-}
-
 import { SortState, ColDef, FilterValue } from "./useTableState";
 import InlineFilters from "./InlineFilters";
 
@@ -247,13 +234,12 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
                   const isMono = MONO_KEYS.has(col.key);
                   const isYN = YN_KEYS.has(col.key);
                   const isStage = col.key === "workflow_status";
-                  const isUid = col.key === "uid";
                   const ccy = CCY_FOR_KEY[col.key] ? row[CCY_FOR_KEY[col.key]] : null;
                   const displayVal = MONEY_DISPLAY_KEYS.has(col.key) ? fmtAmount(val, ccy) : val;
                   return (
                     <td key={col.key} className="px-4 py-3 whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150"
                       style={{ borderRight: "1px solid #f4f4f5", fontFamily: isMono ? "var(--font-mono), monospace" : "var(--font-sans), sans-serif", fontSize: "14px", color: val ? "#09090b" : "#d4d4d8" }}>
-                      {isYN ? <YNBadge value={val} /> : isStage ? <StageBadge value={val} /> : isUid ? <UidCell value={val} /> : displayVal ? displayVal : <span style={{ color: "#e4e4e7" }}>—</span>}
+                      {isYN ? <YNBadge value={val} /> : isStage ? <StageBadge value={val} /> : displayVal ? displayVal : <span style={{ color: "#e4e4e7" }}>—</span>}
                     </td>
                   );
                 })}

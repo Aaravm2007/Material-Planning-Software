@@ -1,7 +1,7 @@
 "use client";
 import { API, apiFetch } from "@/lib/apiFetch";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import AmountInput from "@/components/AmountInput";
@@ -125,6 +125,8 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [newModelModal, setNewModelModal] = useState(false);
   const [editModal, setEditModal] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   async function fetchRows() {
     const res = await apiFetch(`${API}/api/rows/stage/po_pi`);
@@ -135,6 +137,36 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     apiFetch(`${API}/api/suppliers/`).then((r) => r.ok ? r.json() : []).then((d) => setSuppliers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
   usePolling(fetchRows, 10_000);
+
+  async function handleDownloadTemplate() {
+    const res = await apiFetch(`${API}/api/rows/export?type=template&stage=po_pi`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "po_pi_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiFetch(`${API}/api/rows/import`, { method: "POST", body: form });
+    if (res.ok) {
+      const { imported } = await res.json();
+      await fetchRows();
+      alert(`Imported ${imported} row${imported !== 1 ? "s" : ""}.`);
+    } else {
+      alert("Import failed. Check that the file is a valid CSV.");
+    }
+    setImporting(false);
+    if (importRef.current) importRef.current.value = "";
+  }
 
   async function fetchModels(supplier: Supplier) {
     try {
@@ -313,6 +345,12 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>PO / PI</h1>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button style={btnStyle("ghost")} onClick={() => exportToExcel(filteredRows, "po-pi", Object.fromEntries(PO_PI_COLS.map(c => [c.key, c.label])))}>↓ Export</button>
+          <button style={btnStyle("ghost")} onClick={handleDownloadTemplate} title="Download empty CSV template">↓ Template</button>
+          <label style={{ ...btnStyle("ghost"), opacity: importing ? 0.5 : 1, cursor: importing ? "default" : "pointer", display: "inline-flex", alignItems: "center" }}
+            title="Import rows from CSV">
+            {importing ? "Importing…" : "↑ Import CSV"}
+            <input ref={importRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleImportFile} disabled={importing} />
+          </label>
           <button style={btnStyle("primary")} onClick={() => setShowModal(true)}>+ Add Row</button>
         </div>
       </div>

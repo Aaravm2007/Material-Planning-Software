@@ -83,7 +83,6 @@ const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontS
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", whiteSpace: "nowrap" };
 
 const COLS = [
-  { key: "uid",                    label: "UID"             },
   { key: "supplier_name",          label: "Supplier"        },
   { key: "supplier_model_number",  label: "Model No."       },
   { key: "quantity",               label: "Planned Qty"     },
@@ -319,7 +318,6 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, color: "#a1a1aa", fontFamily: "var(--font-mono), monospace", fontSize: "11px" }}>{String(i + 1).padStart(3, "0")}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{p.uid ? p.uid.slice(0, 8) + "…" : <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={TD}>{p.supplier_name}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>

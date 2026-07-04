@@ -4,6 +4,7 @@ import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
+import { useRole } from "@/components/RoleContext";
 import AmountInput from "@/components/AmountInput";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
@@ -130,6 +131,8 @@ function fmtDate(s: string | null) {
 
 export default function OrderPlanningClient({ initialPlans }: { initialPlans: Plan[] }) {
   const router = useRouter();
+  const { role } = useRole();
+  const isExpert = role === "expert";
   const [plans, setPlans] = useState<Plan[]>(initialPlans);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const columnOrder = useColumnOrder("order_planning");
@@ -139,6 +142,11 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
   const [createModels, setCreateModels] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const [editModal, setEditModal] = useState<Plan | null>(null);
+  const [editForm, setEditForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+  const [editModels, setEditModels] = useState<string[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
 
   const [poPiModal, setPoPiModal] = useState<Plan | null>(null);
   const [poPiForm, setPoPiForm] = useState<PoPiForm>(emptyPoPiForm());
@@ -201,6 +209,47 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   async function handleDelete(id: number) {
     await apiFetch(`${API}/api/order-plans/${id}`, { method: "DELETE" });
     setPlans((p) => p.filter((x) => x.id !== id));
+  }
+
+  function openEditModal(plan: Plan) {
+    setEditForm({
+      supplier_name: plan.supplier_name ?? "",
+      supplier_model_number: plan.supplier_model_number ?? "",
+      quantity: plan.quantity ?? "",
+      rate: plan.rate ?? "",
+      target_date: plan.target_date ?? "",
+      remark: plan.remark ?? "",
+    });
+    setEditModal(plan);
+    const match = suppliers.find((s) => s.supplier_name === plan.supplier_name);
+    if (match) {
+      apiFetch(`${API}/api/suppliers/${match.id}/models`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => setEditModels(Array.isArray(d) ? d.map((m: { model_number: string }) => m.model_number) : []))
+        .catch(() => setEditModels([]));
+    } else {
+      setEditModels([]);
+    }
+  }
+
+  async function handleEditSave() {
+    if (!editModal || !editForm.supplier_name) return;
+    setEditSaving(true);
+    const body: Record<string, string> = { supplier_name: editForm.supplier_name };
+    body.supplier_model_number = editForm.supplier_model_number.trim();
+    body.quantity = editForm.quantity.trim();
+    body.rate = editForm.rate.trim();
+    body.target_date = editForm.target_date;
+    body.remark = editForm.remark.trim();
+    const res = await apiFetch(`${API}/api/order-plans/${editModal.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setPlans((p) => p.map((x) => x.id === updated.id ? updated : x));
+      setEditModal(null);
+    }
+    setEditSaving(false);
   }
 
   function openPoPiModal(plan: Plan) {
@@ -352,6 +401,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 {COLS.map((c) => renderPlanCell(c, p))}
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                    {isExpert && <button style={btnStyle("action")} onClick={() => openEditModal(p)}>Edit</button>}
                     <button style={btnStyle("action")} onClick={() => openPoPiModal(p)}>Go to PO/PI →</button>
                     <button style={btnStyle("danger")} onClick={() => handleDelete(p.id)}>Delete</button>
                   </div>
@@ -404,6 +454,64 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Plan Modal (experts only) */}
+      {editModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !(e.target instanceof HTMLTextAreaElement)) handleEditSave(); }}>
+          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "460px", display: "flex", flexDirection: "column", gap: "14px" }}>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>Edit Order Plan</h2>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Supplier Name *
+              <select style={inputStyle} value={editForm.supplier_name} onChange={(e) => {
+                setEditForm({ ...editForm, supplier_name: e.target.value, supplier_model_number: "" });
+                const match = suppliers.find((s) => s.supplier_name === e.target.value);
+                if (match) {
+                  apiFetch(`${API}/api/suppliers/${match.id}/models`)
+                    .then((r) => r.ok ? r.json() : [])
+                    .then((d) => setEditModels(Array.isArray(d) ? d.map((m: { model_number: string }) => m.model_number) : []))
+                    .catch(() => setEditModels([]));
+                } else {
+                  setEditModels([]);
+                }
+              }}>
+                <option value="">— select supplier —</option>
+                {suppliers.map((s) => <option key={s.id} value={s.supplier_name}>{s.supplier_name}</option>)}
+              </select>
+            </label>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Supplier Model No.
+              <input type="text" list="edit-model-list" style={inputStyle}
+                placeholder={editForm.supplier_name ? "Type or pick model…" : "Select supplier first"}
+                disabled={!editForm.supplier_name} value={editForm.supplier_model_number}
+                onChange={(e) => setEditForm({ ...editForm, supplier_model_number: e.target.value })} />
+              <datalist id="edit-model-list">{editModels.map((m) => <option key={m} value={m} />)}</datalist>
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Quantity
+                <input type="text" style={inputStyle} placeholder="e.g. 100" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })} />
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Rate
+                <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={editForm.rate} onChange={(e) => setEditForm({ ...editForm, rate: e.target.value })} />
+              </label>
+            </div>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Target Date
+              <input type="date" style={inputStyle} value={editForm.target_date} onChange={(e) => setEditForm({ ...editForm, target_date: e.target.value })} />
+            </label>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Remarks
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: "60px" }} placeholder="Optional remarks" value={editForm.remark} onChange={(e) => setEditForm({ ...editForm, remark: e.target.value })} />
+            </label>
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button style={btnStyle("ghost")} onClick={() => setEditModal(null)}>Cancel</button>
+              <button style={btnStyle("primary")} onClick={handleEditSave} disabled={editSaving}>{editSaving ? "Saving…" : "Save Changes"}</button>
             </div>
           </div>
         </div>

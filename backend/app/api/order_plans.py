@@ -6,7 +6,8 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
-from app.models import OrderPlan, MaterialRow
+from app.models import OrderPlan, MaterialRow, User
+from app.deps import require_expert
 
 router = APIRouter(prefix="/api/order-plans", tags=["order-plans"])
 
@@ -38,6 +39,15 @@ def _plan_dict(p: OrderPlan, ordered_qty: float = 0.0, has_orders: bool = False)
 
 class CreateOrderPlanBody(BaseModel):
     supplier_name: str
+    supplier_model_number: Optional[str] = None
+    quantity: Optional[str] = None
+    rate: Optional[str] = None
+    target_date: Optional[str] = None
+    remark: Optional[str] = None
+
+
+class UpdateOrderPlanBody(BaseModel):
+    supplier_name: Optional[str] = None
     supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
     rate: Optional[str] = None
@@ -83,6 +93,30 @@ async def create_order_plan(body: CreateOrderPlanBody, db: AsyncSession = Depend
     await db.commit()
     await db.refresh(plan)
     return _plan_dict(plan)
+
+
+@router.patch("/{plan_id}")
+async def update_order_plan(
+    plan_id: int,
+    body: UpdateOrderPlanBody,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_expert),
+):
+    result = await db.execute(select(OrderPlan).where(OrderPlan.id == plan_id))
+    plan = result.scalar_one_or_none()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Order plan not found")
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(plan, field, value)
+    await db.commit()
+    await db.refresh(plan)
+
+    rows_res = await db.execute(
+        select(MaterialRow.po_quantity).where(MaterialRow.order_plan_id == plan_id)
+    )
+    qtys = [r[0] for r in rows_res.all()]
+    ordered_qty = sum(_safe_float(q) for q in qtys)
+    return _plan_dict(plan, ordered_qty, has_orders=len(qtys) > 0)
 
 
 @router.delete("/{plan_id}", status_code=204)

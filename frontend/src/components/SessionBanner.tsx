@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { API } from "@/lib/apiFetch";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 const COUNTDOWN_SECS = 30;
 const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
@@ -25,17 +25,14 @@ export default function SessionBanner() {
     return () => window.removeEventListener("session-expired", triggerExpiry);
   }, []);
 
-  // Poll /api/users/me every 2 minutes to catch expiry proactively
+  // Poll /api/users/me every 2 minutes to catch expiry proactively.
+  // Routed through apiFetch so a 401/403 here follows the same rule as any
+  // other API call: redirect immediately if never authenticated, otherwise
+  // show the countdown banner (via the session-expired listener above).
   useEffect(() => {
     if (pathname.startsWith("/login")) return;
-    const id = setInterval(async () => {
-      try {
-        const res = await fetch(`${API}/api/users/me`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (res.status === 401 || res.status === 403) triggerExpiry();
-      } catch {}
+    const id = setInterval(() => {
+      apiFetch(`${API}/api/users/me`, { cache: "no-store" });
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [pathname]);

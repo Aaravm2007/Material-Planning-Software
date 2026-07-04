@@ -28,6 +28,12 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    if user.is_blocked:
+        raise HTTPException(status_code=403, detail="Your access has been blocked by an administrator")
+    if user.force_reauth:
+        user.force_reauth = False
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Session revoked by administrator")
     return user
 
 

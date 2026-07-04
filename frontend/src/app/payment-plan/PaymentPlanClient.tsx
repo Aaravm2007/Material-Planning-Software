@@ -11,12 +11,13 @@ interface Row {
   supplier_name: string | null;
   supplier_code: string | null;
   pi_number: string | null;
-  po_number: string | null;
+  pi_total_value: string | null;
+  currency: string | null;
+  exchange_rate: string | null;
   rocket_item_code: string | null;
   po_total_value: string | null;
   bl_date: string | null;
   credit_time: string | null;
-  confirmed_due_date: string | null;
   confirmed_payment_amt: string | null;
   confirmed_payment_exchange: string | null;
   workflow_status: string | null;
@@ -73,18 +74,18 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
 
   const rowsWithDates = rows
     .map((r) => ({ ...r, _est_due: calcEstimatedDueDate(r) }))
-    .filter((r) => r._est_due || r.confirmed_due_date || r.confirmed_payment_amt);
+    .filter((r) => r._est_due || r.confirmed_payment_amt);
 
   const filtered = rowsWithDates.filter((r) => {
-    const due = r.confirmed_due_date ?? r._est_due;
+    const due = r._est_due;
     if (filter === "upcoming") return isDueSoon(due);
     if (filter === "overdue") return isOverdue(due);
     return true;
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    const da = a.confirmed_due_date ?? a._est_due ?? "9999";
-    const db = b.confirmed_due_date ?? b._est_due ?? "9999";
+    const da = a._est_due ?? "9999";
+    const db = b._est_due ?? "9999";
     return da < db ? -1 : da > db ? 1 : 0;
   });
 
@@ -110,7 +111,7 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
           <span style={{ marginLeft: "8px", fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", alignSelf: "center", textTransform: "uppercase" }}>
             {sorted.length} rows
           </span>
-          <button onClick={() => exportToExcel(sorted, "payment-plan", { uid: "UID", supplier_name: "Supplier", supplier_code: "Supplier Code", pi_number: "PI Number", po_number: "PO Number", rocket_item_code: "Item Code", po_total_value: "PO Total Value", bl_date: "BL Date", credit_time: "Credit Time (days)", confirmed_due_date: "Confirmed Due Date", confirmed_payment_amt: "Payment Amount", confirmed_payment_exchange: "Payment Exchange Rate", workflow_status: "Stage" })}
+          <button onClick={() => exportToExcel(sorted, "payment-plan", { supplier_name: "Supplier", supplier_code: "Supplier Code", pi_number: "PI Number", rocket_item_code: "Item Code", pi_total_value: "PI Total Value", currency: "Currency", exchange_rate: "Exchange Rate", po_total_value: "Amount in INR", bl_date: "BL Date", credit_time: "Credit Time (days)", _est_due: "Completed Due Date", confirmed_payment_amt: "Payment Amount", confirmed_payment_exchange: "Payment Exchange Rate", workflow_status: "Stage" })}
             style={{ padding: "5px 12px", borderRadius: "7px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer", fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}>
@@ -125,19 +126,19 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
           <thead className="sticky top-0 z-10">
             <tr>
               <th style={TH}>#</th>
-              <th style={TH}>UID</th>
               <th style={TH}>Supplier</th>
               <th style={TH}>Supp. Code</th>
               <th style={TH}>PI Number</th>
               <th style={TH}>Rocket Item Code</th>
-              <th style={TH}>PO Number</th>
-              <th style={TH}>PO Total Value</th>
+              <th style={TH}>PI Total Value</th>
+              <th style={TH}>Currency</th>
+              <th style={TH}>Exchange Rate</th>
+              <th style={TH}>Amount in INR</th>
               <th style={TH}>BL Date</th>
               <th style={TH}>Credit Time (days)</th>
-              <th style={TH}>Est. Due Date</th>
-              <th style={TH}>Confirmed Due Date</th>
+              <th style={TH}>Completed Due Date</th>
               <th style={TH}>Payment Amt</th>
-              <th style={TH}>Exchange Rate</th>
+              <th style={TH}>Payment Exchange Rate</th>
               <th style={TH}>Stage</th>
             </tr>
           </thead>
@@ -150,8 +151,7 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
               </tr>
             ) : sorted.map((row, i) => {
               const estDue = row._est_due;
-              const confDue = row.confirmed_due_date as string | null;
-              const due = confDue ?? estDue;
+              const due = estDue;
               const overdue = isOverdue(due);
               const soon = !overdue && isDueSoon(due);
               const rowBg = overdue ? "#fff5f5" : soon ? "#fffbeb" : "#fff";
@@ -163,22 +163,18 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>
                     {String(i + 1).padStart(3, "0")}
                   </td>
-                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>
-                    {String(row.uid).slice(0, 8)}…
-                  </td>
                   <td style={TD}>{row.supplier_name ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.supplier_code ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.pi_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.rocket_item_code ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.po_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
+                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.pi_total_value ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
+                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.currency ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
+                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.exchange_rate ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.po_total_value ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.bl_date ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", textAlign: "center" }}>{row.credit_time ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
-                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", color: estDue ? (overdue && !confDue ? "#ef4444" : "#09090b") : "#d4d4d8" }}>
+                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", color: estDue ? (overdue ? "#ef4444" : "#09090b") : "#d4d4d8" }}>
                     {estDue ?? "—"}
-                  </td>
-                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: confDue ? 600 : 400, color: confDue ? (overdue ? "#ef4444" : "#09090b") : "#d4d4d8" }}>
-                    {confDue ?? "—"}
                   </td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>
                     {row.confirmed_payment_amt ?? <span style={{ color: "#d4d4d8" }}>—</span>}

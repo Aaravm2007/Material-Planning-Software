@@ -24,7 +24,7 @@ const TRANSPORT_COL_DEFS: ColDef[] = [
   { key: "landing_cost",               label: "Landing Cost",      type: "amount" },
 ];
 
-interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; eway_bill: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; [key: string]: string | null | number; }
+interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; eway_bill: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface ChaRecord { id: number; cha_name: string; agent_name: string | null; cha_charges: string | null; date: string | null; }
 
 
@@ -88,7 +88,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   const [chaRecords, setChaRecords] = useState<ChaRecord[]>([]);
 
   async function fetchRows() {
-    const res = await apiFetch(`${API}/api/rows/`);
+    const res = await apiFetch(`${API}/api/rows/stage/transportation`);
     if (res.ok) setRows(await res.json());
   }
   useEffect(() => { fetchRows(); }, []);
@@ -128,7 +128,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
     setSaving(true);
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({ ...editForm, fields_entered: true }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -164,7 +164,6 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
   }
 
   const ALL_COLS = [
-    { key: "uid", label: "UID" },
     { key: "supplier_name", label: "Supplier" },
     { key: "supplier_code", label: "Supp. Code" },
     { key: "pi_number", label: "PI Number" },
@@ -215,7 +214,6 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(i + 1).padStart(3, "0")}</td>
                 {ALL_COLS.map((col) => {
-                  if (col.key === "uid") return <td key="uid" style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(row.uid).slice(0, 8)}…</td>;
                   if (col.key === "total_calc") return <td key="total_calc" style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, background: "#f9f9f9" }}>{calcTotal(row)}</td>;
                   const v = String(row[col.key] ?? "");
                   const isText = col.key === "cha_name" || col.key === "supplier_name";
@@ -224,8 +222,10 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                     <button style={btnStyle("ghost")} onClick={() => handleBack(row.uid as string)}>← BOE</button>
-                    <button style={btnStyle("action")} onClick={() => openEdit(row)}>Edit</button>
-                    <button style={btnStyle("primary")} onClick={() => handleAdvance(row.uid as string)}>→ Due Date</button>
+                    <button style={btnStyle("action")} onClick={() => openEdit(row)}>
+                      {row.fields_entered ? "Edit Fields" : "Enter Fields"}
+                    </button>
+                    <button style={{ ...btnStyle("primary"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleAdvance(row.uid as string); }}>→ Due Date</button>
                   </div>
                 </td>
               </tr>

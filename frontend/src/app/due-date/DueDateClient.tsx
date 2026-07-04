@@ -14,20 +14,18 @@ const DUEDATE_COL_DEFS: ColDef[] = [
   { key: "po_total_value",            label: "PO Total Value",      type: "amount" },
   { key: "bl_date",                   label: "BL Date",             type: "date"   },
   { key: "credit_time",               label: "Credit Time",         type: "amount" },
-  { key: "confirmed_due_date",        label: "Confirmed Due Date",  type: "date"   },
   { key: "advance_given",             label: "Advance Given",       type: "amount" },
   { key: "hedged",                    label: "Hedged",              type: "select", options: ["Y","N"] },
   { key: "confirmed_payment_amt",     label: "Payment Amt",         type: "amount" },
   { key: "confirmed_payment_exchange",label: "Payment Exchange",    type: "amount" },
 ];
 
-interface Row { id: number; uid: string; bl_date: string | null; credit_time: string | null; estimated_due_date: string | null; confirmed_due_date: string | null; hedged: string | null; confirmed_payment_amt: string | null; confirmed_payment_exchange: string | null; [key: string]: string | null | number; }
+interface Row { id: number; uid: string; bl_date: string | null; credit_time: string | null; estimated_due_date: string | null; hedged: string | null; confirmed_payment_amt: string | null; confirmed_payment_exchange: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface HedgingRecord { id: number; contract_number: string | null; hedge_rate: string | null; hedged_currency_amount: string | null; currency: string | null; hedged_date: string | null; }
 interface ContractSelection { record: HedgingRecord; amount: string; }
 
 
 const DUE_FIELDS = [
-  { key: "confirmed_due_date",         label: "Confirmed Due Date"    },
   { key: "advance_given",              label: "Advance Given"         },
   { key: "hedged",                     label: "Hedged"                },
   { key: "confirmed_payment_amt",      label: "Confirmed Payment Amt" },
@@ -96,7 +94,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   const [addContractId, setAddContractId] = useState<string>("");
 
   async function fetchRows() {
-    const res = await apiFetch(`${API}/api/rows/`);
+    const res = await apiFetch(`${API}/api/rows/stage/due_date`);
     if (res.ok) setRows(await res.json());
   }
   useEffect(() => { fetchRows(); }, []);
@@ -166,7 +164,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
     setSaving(true);
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({ ...editForm, fields_entered: true }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -195,14 +193,13 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   const isHedgedYes = editForm.hedged === "Y";
 
   const ALL_COLS = [
-    { key: "uid", label: "UID" },
     { key: "supplier_name", label: "Supplier" },
     { key: "supplier_code", label: "Supp. Code" },
     { key: "pi_number", label: "PI Number" },
     { key: "po_total_value", label: "PO Total Value" },
     { key: "bl_date", label: "BL Date" },
     { key: "credit_time", label: "Credit Time (days)" },
-    { key: "_est_due_calc", label: "Estimated Due Date" },
+    { key: "_est_due_calc", label: "Completed Due Date" },
     ...DUE_FIELDS,
   ];
 
@@ -245,8 +242,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(i + 1).padStart(3, "0")}</td>
-                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(row.uid).slice(0, 8)}…</td>
-                {ALL_COLS.slice(1).map((col) => {
+                {ALL_COLS.map((col) => {
                   if (col.key === "_est_due_calc") {
                     const val = calcEstimatedDueDate(row);
                     return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", color: val === "—" ? "#d4d4d8" : "#09090b" }}>{val}</td>;
@@ -268,8 +264,10 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                     <button style={btnStyle("ghost")} onClick={() => handleBack(row.uid as string)}>← Transport</button>
-                    <button style={btnStyle("action")} onClick={() => openEdit(row)}>Edit</button>
-                    <button style={btnStyle("complete")} onClick={() => handleComplete(row)}>✓ Complete</button>
+                    <button style={btnStyle("action")} onClick={() => openEdit(row)}>
+                      {row.fields_entered ? "Edit Fields" : "Enter Fields"}
+                    </button>
+                    <button style={{ ...btnStyle("complete"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleComplete(row); }}>✓ Complete</button>
                   </div>
                 </td>
               </tr>
@@ -283,12 +281,6 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
           onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "520px", maxHeight: "85vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>Edit Due Date Fields</h2>
-
-            {/* Confirmed Due Date */}
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-              Confirmed Due Date
-              <input type="date" style={inputStyle} value={editForm.confirmed_due_date ?? ""} onChange={(e) => handleEditChange("confirmed_due_date", e.target.value)} />
-            </label>
 
             {/* Advance Given */}
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>

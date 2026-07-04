@@ -11,6 +11,7 @@ interface Plan {
   id: number;
   uid: string | null;
   supplier_name: string;
+  supplier_model_number: string | null;
   quantity: string | null;
   rate: string | null;
   target_date: string | null;
@@ -82,15 +83,16 @@ const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontS
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", whiteSpace: "nowrap" };
 
 const COLS = [
-  { key: "uid",              label: "UID"         },
-  { key: "supplier_name",    label: "Supplier"    },
-  { key: "quantity",         label: "Planned Qty" },
-  { key: "ordered_quantity", label: "Ordered Qty" },
-  { key: "quantity_diff",    label: "Difference"  },
-  { key: "rate",             label: "Rate"        },
-  { key: "target_date",      label: "Target Date" },
-  { key: "remark",           label: "Remarks"     },
-  { key: "created_at",       label: "Created"     },
+  { key: "uid",                    label: "UID"             },
+  { key: "supplier_name",          label: "Supplier"        },
+  { key: "supplier_model_number",  label: "Model No."       },
+  { key: "quantity",               label: "Planned Qty"     },
+  { key: "ordered_quantity",       label: "Ordered Qty"     },
+  { key: "quantity_diff",          label: "Difference"      },
+  { key: "rate",                   label: "Rate"            },
+  { key: "target_date",            label: "Target Date"     },
+  { key: "remark",                 label: "Remarks"         },
+  { key: "created_at",             label: "Created"         },
 ];
 
 function fmtDate(s: string | null) {
@@ -104,7 +106,8 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ supplier_name: "", quantity: "", rate: "", target_date: "", remark: "" });
+  const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+  const [createModels, setCreateModels] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [poPiModal, setPoPiModal] = useState<Plan | null>(null);
@@ -125,6 +128,16 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   }, []);
   usePolling(fetchPlans, 10_000);
 
+  async function fetchCreateModels(supplierName: string) {
+    const match = suppliers.find((s) => s.supplier_name === supplierName);
+    if (!match) { setCreateModels([]); return; }
+    try {
+      const res = await apiFetch(`${API}/api/suppliers/${match.id}/models`);
+      const data = res.ok ? await res.json() : [];
+      setCreateModels(Array.isArray(data) ? data.map((m: { model_number: string }) => m.model_number) : []);
+    } catch { setCreateModels([]); }
+  }
+
   async function fetchPoPiModels(supplier: Supplier) {
     try {
       const res = await apiFetch(`${API}/api/suppliers/${supplier.id}/models`);
@@ -137,6 +150,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     if (!form.supplier_name) return;
     setSaving(true);
     const body: Record<string, string> = { supplier_name: form.supplier_name };
+    if (form.supplier_model_number.trim()) body.supplier_model_number = form.supplier_model_number.trim();
     if (form.quantity.trim()) body.quantity = form.quantity.trim();
     if (form.rate.trim()) body.rate = form.rate.trim();
     if (form.target_date) body.target_date = form.target_date;
@@ -148,7 +162,8 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       const created = await res.json();
       setPlans((p) => [created, ...p]);
       setShowModal(false);
-      setForm({ supplier_name: "", quantity: "", rate: "", target_date: "", remark: "" });
+      setForm({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+      setCreateModels([]);
     }
     setSaving(false);
   }
@@ -306,6 +321,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 <td style={{ ...TD, color: "#a1a1aa", fontFamily: "var(--font-mono), monospace", fontSize: "11px" }}>{String(i + 1).padStart(3, "0")}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{p.uid ? p.uid.slice(0, 8) + "…" : <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={TD}>{p.supplier_name}</td>
+                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, color: (() => { const d = parseFloat(p.quantity_diff ?? ""); return !p.quantity_diff ? "#d4d4d8" : d === 0 ? "#16a34a" : d > 0 ? "#ef4444" : "#f97316"; })() }}>{p.quantity_diff != null ? (parseFloat(p.quantity_diff) > 0 ? "+" : "") + p.quantity_diff : "—"}</td>
@@ -333,10 +349,18 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New Order Plan</h2>
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Supplier Name *
-              <select style={inputStyle} value={form.supplier_name} onChange={(e) => setForm({ ...form, supplier_name: e.target.value })}>
+              <select style={inputStyle} value={form.supplier_name} onChange={(e) => { setForm({ ...form, supplier_name: e.target.value, supplier_model_number: "" }); fetchCreateModels(e.target.value); }}>
                 <option value="">— select supplier —</option>
                 {suppliers.map((s) => <option key={s.id} value={s.supplier_name}>{s.supplier_name}</option>)}
               </select>
+            </label>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Supplier Model No.
+              <input type="text" list="create-model-list" style={inputStyle}
+                placeholder={form.supplier_name ? "Type or pick model…" : "Select supplier first"}
+                disabled={!form.supplier_name} value={form.supplier_model_number}
+                onChange={(e) => setForm({ ...form, supplier_model_number: e.target.value })} />
+              <datalist id="create-model-list">{createModels.map((m) => <option key={m} value={m} />)}</datalist>
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -357,7 +381,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: "60px" }} placeholder="Optional remarks" value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} />
             </label>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", quantity: "", rate: "", target_date: "", remark: "" }); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
             </div>
           </div>

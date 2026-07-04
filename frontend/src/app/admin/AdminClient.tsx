@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { API, apiFetch } from "@/lib/apiFetch";
 import { useRole } from "@/components/RoleContext";
 
-interface User { id: number; username: string; email: string | null; role: string; }
+interface User { id: number; username: string; email: string | null; role: string; is_blocked: boolean; }
 
 const TH: React.CSSProperties = {
   padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
@@ -20,7 +20,10 @@ export default function AdminClient() {
   const { role: myRole, email: myEmail, loading } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [fetching, setFetching] = useState(true);
-  const [toggling, setToggling] = useState<number | null>(null);
+  const [actioning, setActioning] = useState<{ id: number; action: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -31,19 +34,37 @@ export default function AdminClient() {
       .finally(() => setFetching(false));
   }, [loading]);
 
-  async function toggleRole(user: User) {
-    const next = user.role === "expert" ? "user" : "expert";
-    setToggling(user.id);
+  async function patchUser(user: User, payload: object, action: string) {
+    setActioning({ id: user.id, action });
     const res = await apiFetch(`${API}/api/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: next }),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const updated = await res.json();
       setUsers((u) => u.map((x) => (x.id === updated.id ? updated : x)));
     }
-    setToggling(null);
+    setActioning(null);
+  }
+
+  async function handleClearDb() {
+    setClearing(true);
+    const res = await apiFetch(`${API}/api/admin/clear-db`, { method: "DELETE" });
+    if (res.ok) {
+      const { cleared } = await res.json();
+      alert(`Cleared: ${cleared.join(", ")}`);
+    }
+    setClearing(false);
+    setClearConfirm(false);
+  }
+
+  async function deleteUser(id: number) {
+    setActioning({ id, action: "delete" });
+    const res = await apiFetch(`${API}/api/users/${id}`, { method: "DELETE" });
+    if (res.ok || res.status === 204) setUsers((u) => u.filter((x) => x.id !== id));
+    setActioning(null);
+    setConfirmDelete(null);
   }
 
   if (loading || fetching) {
@@ -73,16 +94,19 @@ export default function AdminClient() {
             Manage access roles for team members. Changes take effect on their next page load.
           </p>
         </div>
-        <a
-          href={`https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`}
+        <button
+          onClick={async () => {
+            await apiFetch(`${API}/api/users/me/signout`, { method: "POST" }).catch(() => {});
+            window.location.href = `https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`;
+          }}
           style={{
             padding: "6px 14px", borderRadius: "7px", fontSize: "12px", fontWeight: 500,
-            fontFamily: "var(--font-sans), sans-serif", textDecoration: "none",
+            fontFamily: "var(--font-sans), sans-serif", cursor: "pointer",
             border: "1px solid #fecaca", color: "#ef4444", background: "transparent",
           }}
         >
           Sign out
-        </a>
+        </button>
       </div>
 
       <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", overflow: "hidden" }}>
@@ -92,7 +116,7 @@ export default function AdminClient() {
               <th style={TH}>Email</th>
               <th style={TH}>Username</th>
               <th style={TH}>Role</th>
-              <th style={{ ...TH, textAlign: "right" }}>Action</th>
+              <th style={{ ...TH, textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -127,23 +151,76 @@ export default function AdminClient() {
                     </span>
                   </td>
                   <td style={{ ...TD, textAlign: "right" }}>
-                    <button
-                      disabled={isMe || toggling === u.id}
-                      onClick={() => toggleRole(u)}
-                      style={{
-                        padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 500,
-                        fontFamily: "var(--font-sans), sans-serif", cursor: isMe ? "not-allowed" : "pointer",
-                        border: "1px solid #e4e4e7", background: "transparent",
-                        color: isMe ? "#a1a1aa" : "#09090b",
-                        opacity: toggling === u.id ? 0.5 : 1,
-                      }}
-                    >
-                      {toggling === u.id
-                        ? "Saving…"
-                        : u.role === "expert"
-                        ? "Demote to user"
-                        : "Promote to expert"}
-                    </button>
+                    <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      {/* Role toggle */}
+                      <button
+                        disabled={isMe || actioning?.id === u.id}
+                        onClick={() => patchUser(u, { role: u.role === "expert" ? "user" : "expert" }, "role")}
+                        style={{
+                          padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500,
+                          fontFamily: "var(--font-sans), sans-serif", cursor: isMe ? "not-allowed" : "pointer",
+                          border: "1px solid #e4e4e7", background: "transparent",
+                          color: isMe ? "#a1a1aa" : "#09090b",
+                          opacity: actioning?.id === u.id && actioning.action === "role" ? 0.5 : 1,
+                        }}
+                      >
+                        {actioning?.id === u.id && actioning.action === "role" ? "Saving…" : u.role === "expert" ? "Demote" : "Promote"}
+                      </button>
+                      {/* Force sign out */}
+                      <button
+                        disabled={isMe || actioning?.id === u.id}
+                        onClick={() => patchUser(u, { force_reauth: true }, "signout")}
+                        style={{
+                          padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500,
+                          fontFamily: "var(--font-sans), sans-serif", cursor: isMe ? "not-allowed" : "pointer",
+                          border: "1px solid #fde68a", background: "transparent", color: isMe ? "#a1a1aa" : "#b45309",
+                          opacity: actioning?.id === u.id && actioning.action === "signout" ? 0.5 : 1,
+                        }}
+                        title="Forces user to sign in again on next request"
+                      >
+                        {actioning?.id === u.id && actioning.action === "signout" ? "…" : "Force sign out"}
+                      </button>
+                      {/* Block / Unblock */}
+                      <button
+                        disabled={isMe || actioning?.id === u.id}
+                        onClick={() => patchUser(u, { is_blocked: !u.is_blocked }, "block")}
+                        style={{
+                          padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500,
+                          fontFamily: "var(--font-sans), sans-serif", cursor: isMe ? "not-allowed" : "pointer",
+                          border: u.is_blocked ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                          background: "transparent", color: isMe ? "#a1a1aa" : u.is_blocked ? "#15803d" : "#ef4444",
+                          opacity: actioning?.id === u.id && actioning.action === "block" ? 0.5 : 1,
+                        }}
+                        title={u.is_blocked ? "Re-enable access" : "Block all future requests"}
+                      >
+                        {actioning?.id === u.id && actioning.action === "block" ? "…" : u.is_blocked ? "Unblock" : "Block"}
+                      </button>
+                      {/* Delete */}
+                      {confirmDelete === u.id ? (
+                        <>
+                          <button
+                            onClick={() => deleteUser(u.id)}
+                            disabled={actioning?.id === u.id}
+                            style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, fontFamily: "var(--font-sans), sans-serif", cursor: "pointer", border: "1px solid #ef4444", background: "#ef4444", color: "#fff" }}
+                          >
+                            {actioning?.id === u.id && actioning.action === "delete" ? "…" : "Confirm"}
+                          </button>
+                          <button onClick={() => setConfirmDelete(null)} style={{ padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500, fontFamily: "var(--font-sans), sans-serif", cursor: "pointer", border: "1px solid #e4e4e7", background: "transparent", color: "#71717a" }}>Cancel</button>
+                        </>
+                      ) : (
+                        <button
+                          disabled={isMe || actioning?.id === u.id}
+                          onClick={() => setConfirmDelete(u.id)}
+                          style={{
+                            padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 500,
+                            fontFamily: "var(--font-sans), sans-serif", cursor: isMe ? "not-allowed" : "pointer",
+                            border: "1px solid #e4e4e7", background: "transparent", color: isMe ? "#a1a1aa" : "#71717a",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -155,6 +232,45 @@ export default function AdminClient() {
       <p style={{ fontSize: "11px", color: "#a1a1aa", marginTop: "12px" }}>
         You cannot change your own role.
       </p>
+
+      {/* Danger Zone */}
+      <div style={{ marginTop: "40px", borderTop: "1px solid #fee2e2", paddingTop: "24px" }}>
+        <div style={{ marginBottom: "12px" }}>
+          <h2 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "16px", fontWeight: 400, color: "#dc2626", margin: "0 0 4px" }}>
+            Danger Zone
+          </h2>
+          <p style={{ fontSize: "12px", color: "#71717a", margin: 0 }}>
+            Clears all rows, order plans, BOE entries, and shipping options. Users and master data (suppliers, ports, etc.) are preserved.
+          </p>
+        </div>
+        {!clearConfirm ? (
+          <button
+            onClick={() => setClearConfirm(true)}
+            style={{ padding: "8px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: 500, fontFamily: "var(--font-sans), sans-serif", cursor: "pointer", border: "1px solid #fecaca", color: "#dc2626", background: "transparent" }}
+          >
+            Clear database
+          </button>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "14px 16px", border: "1px solid #fecaca", borderRadius: "10px", background: "#fff5f5" }}>
+            <span style={{ fontSize: "13px", color: "#dc2626", flex: 1 }}>
+              This will permanently delete all operational data. Are you sure?
+            </span>
+            <button
+              onClick={handleClearDb}
+              disabled={clearing}
+              style={{ padding: "6px 16px", borderRadius: "7px", fontSize: "13px", fontWeight: 600, fontFamily: "var(--font-sans), sans-serif", cursor: clearing ? "default" : "pointer", border: "none", background: "#dc2626", color: "#fff", opacity: clearing ? 0.6 : 1 }}
+            >
+              {clearing ? "Clearing…" : "Yes, clear everything"}
+            </button>
+            <button
+              onClick={() => setClearConfirm(false)}
+              style={{ padding: "6px 14px", borderRadius: "7px", fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", cursor: "pointer", border: "1px solid #e4e4e7", background: "transparent", color: "#71717a" }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

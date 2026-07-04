@@ -9,7 +9,7 @@ import { useTableState, ColDef } from "@/components/useTableState";
 
 const POLL_MS = 5_000;
 
-// All editable fields grouped by stage
+// All editable fields grouped by stage — ordered to match each stage table's column order
 const SECTIONS = [
   {
     title: "PO / PI",
@@ -17,17 +17,17 @@ const SECTIONS = [
       { key: "srno",                  label: "Sr No"               },
       { key: "date_of_po",            label: "Date of PO",  date: true },
       { key: "supplier_name",         label: "Supplier Name"       },
-      { key: "supplier_code",         label: "Supplier Code"       },
       { key: "rocket_item_code",      label: "Rocket Item Code"    },
-      { key: "supplier_model_number", label: "Supplier Model No"   },
+      { key: "supplier_code",         label: "Supplier Code"       },
       { key: "po_number",             label: "PO Number"           },
       { key: "pi_number",             label: "PI Number"           },
       { key: "pi_date",               label: "PI Date",     date: true },
+      { key: "supplier_model_number", label: "Supplier Model No"   },
       { key: "pi_quantity",           label: "PI Quantity"         },
       { key: "pi_rate",               label: "PI Rate"             },
-      { key: "pi_total_value",        label: "PI Total (orig.)"    },
       { key: "currency",              label: "Currency",    select: ["USD","INR","CNY"] },
       { key: "exchange_rate",         label: "Exchange Rate"       },
+      { key: "pi_total_value",        label: "PI Total (orig.)"    },
       { key: "po_total_value",        label: "Total (INR)"         },
       { key: "tentative_exworks_at_po_time", label: "Tentative Ex-Works", date: true },
       { key: "confirmed_exworks",     label: "Confirmed Ex-Works",  date: true },
@@ -37,9 +37,10 @@ const SECTIONS = [
   {
     title: "Import Planning",
     fields: [
+      { key: "shipment_status",               label: "Shipment Status", select: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"] },
       { key: "etd",                           label: "ETD",                   date: true },
       { key: "port",                          label: "Port"                              },
-      { key: "confirmed_shipping_time",       label: "Confirmed Shipping Time"           },
+      { key: "confirmed_shipping_time",       label: "Shipping Time (days)"              },
       { key: "shipping_company",              label: "Shipping Company"                  },
       { key: "estimated_destination_charges", label: "Est. Destination Charges"          },
       { key: "freight_charges",               label: "Freight Charges"                   },
@@ -55,32 +56,34 @@ const SECTIONS = [
   {
     title: "BOE",
     fields: [
-      { key: "boe_no",              label: "BOE No"              },
-      { key: "dollar_rate",         label: "Dollar Rate"         },
-      { key: "custom_exchange_rate",label: "Custom Exchange Rate"},
-      { key: "provisional_boe",     label: "Provisional BOE"     },
+      { key: "boe_no",                         label: "BOE No"                },
+      { key: "dollar_rate_currency",           label: "Dollar Rate Currency",  select: ["USD","EUR","CNY","GBP","AED","INR"] },
+      { key: "dollar_rate",                    label: "Dollar Rate"            },
+      { key: "custom_exchange_rate_currency",  label: "Custom Exch. Currency", select: ["USD","EUR","CNY","GBP","AED","INR"] },
+      { key: "custom_exchange_rate",           label: "Custom Exchange Rate"   },
+      { key: "provisional_boe",                label: "Provisional BOE"        },
+      { key: "actual_boe",                     label: "Actual BOE"             },
     ],
   },
   {
     title: "Transportation",
     fields: [
-      { key: "transportation_inbound",        label: "Transport Inbound"       },
-      { key: "transportation_outbound_home",  label: "Transport Outbound/Home" },
       { key: "eway_bill",                     label: "E-Way Bill"              },
       { key: "sap_inward_no",                 label: "SAP Inward No"           },
       { key: "cha_name",                      label: "CHA Name"                },
       { key: "cha_charges",                   label: "CHA Charges"             },
       { key: "other_charges",                 label: "Other Charges"           },
       { key: "confirmed_destination_charges", label: "Conf. Dest. Charges"     },
+      { key: "transportation_inbound",        label: "Transport Inbound"       },
+      { key: "transportation_outbound_home",  label: "Transport Outbound/Home" },
     ],
   },
   {
     title: "Due Date",
     fields: [
-      { key: "estimated_due_date",        label: "Estimated Due Date",  date: true },
-      { key: "confirmed_due_date",        label: "Confirmed Due Date",  date: true },
-      { key: "hedged",                    label: "Hedged",   select: ["Y","N"]     },
+      { key: "estimated_due_date",        label: "Completed Due Date",  date: true },
       { key: "advance_given",             label: "Advance Given"                   },
+      { key: "hedged",                    label: "Hedged",   select: ["Y","N"]     },
       { key: "confirmed_payment_amt",     label: "Confirmed Payment Amt"           },
       { key: "confirmed_payment_exchange",label: "Payment Exchange Rate"           },
     ],
@@ -104,7 +107,7 @@ const inputStyle: React.CSSProperties = {
   background: "#fafafa", color: "#09090b",
 };
 
-const DATE_KEYS = new Set(["date_of_po","pi_date","tentative_exworks_at_po_time","confirmed_exworks","etd","bl_date","estimated_eta","confirmed_eta","estimated_due_date","confirmed_due_date"]);
+const DATE_KEYS = new Set(["date_of_po","pi_date","tentative_exworks_at_po_time","confirmed_exworks","etd","bl_date","estimated_eta","confirmed_eta","estimated_due_date"]);
 const SELECT_KEYS: Record<string, string[]> = {
   workflow_status: ["po_pi","pending_import","approved_import","boe","transportation","due_date","complete"],
   currency:        ["USD","INR","CNY"],
@@ -122,6 +125,16 @@ const MASTER_COL_DEFS: ColDef[] = COLUMNS.map((c) => ({
   options: SELECT_KEYS[c.key],
 }));
 
+const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
+
+interface BoeEntry { id: number; uid: string; amount: string; currency: string | null; rate: string | null; note: string | null; }
+
+function entryInrValue(e: { amount: string; currency: string | null; rate: string | null }): number {
+  const amount = parseFloat(e.amount) || 0;
+  if (e.currency && e.currency !== "INR") return amount * (parseFloat(e.rate ?? "") || 0);
+  return amount;
+}
+
 export default function MasterTableClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -135,6 +148,45 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState(0);
+
+  // Actual BOE entries (edited inline within the BOE tab of the edit dialog)
+  const [boeEntries, setBoeEntries] = useState<BoeEntry[]>([]);
+  const [newBoeEntry, setNewBoeEntry] = useState({ amount: "", currency: "INR", rate: "", note: "" });
+  const [entrySaving, setEntrySaving] = useState(false);
+
+  // Import state
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
+
+  async function handleExport(type: "template" | "data") {
+    const res = await apiFetch(`${API}/api/rows/export?type=${type}`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = type === "template" ? "master_template.csv" : "master_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiFetch(`${API}/api/rows/import`, { method: "POST", body: form });
+    if (res.ok) {
+      const { imported } = await res.json();
+      await fetchRows();
+      alert(`Imported ${imported} row${imported !== 1 ? "s" : ""}.`);
+    } else {
+      alert("Import failed. Check that the file is a valid CSV.");
+    }
+    setImporting(false);
+    if (importRef.current) importRef.current.value = "";
+  }
 
   async function fetchRows() {
     try {
@@ -165,7 +217,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     fetchRows();
   }
 
-  function openEdit(uid: string) {
+  async function openEdit(uid: string) {
     const row = rows.find((r) => String(r.uid) === uid);
     if (!row) return;
     const form: Record<string, string> = {};
@@ -177,6 +229,52 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     setEditForm(form);
     setEditRow(row);
     setActiveSection(0);
+    setNewBoeEntry({ amount: "", currency: "INR", rate: "", note: "" });
+    const res = await apiFetch(`${API}/api/boe-entries/${uid}`);
+    setBoeEntries(res.ok ? await res.json() : []);
+  }
+
+  function syncBoeSums(uid: string, entryList: BoeEntry[]) {
+    const sum = entryList.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
+    const inrSum = entryList.reduce((acc, e) => acc + entryInrValue(e), 0);
+    setRows((r) => r.map((row) => {
+      if (row.uid !== uid) return row;
+      const updated: Row = { ...row };
+      updated.actual_boe = sum > 0 ? String(sum.toFixed(2)) : "0";
+      updated.actual_boe_inr = inrSum > 0 ? String(inrSum.toFixed(2)) : "0";
+      return updated;
+    }));
+  }
+
+  async function handleAddBoeEntry() {
+    if (!editRow || !newBoeEntry.amount) return;
+    setEntrySaving(true);
+    const res = await apiFetch(`${API}/api/boe-entries/`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uid: editRow.uid,
+        amount: newBoeEntry.amount,
+        currency: newBoeEntry.currency,
+        rate: newBoeEntry.currency === "INR" ? null : newBoeEntry.rate,
+        note: newBoeEntry.note || null,
+      }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      const updated = [...boeEntries, created];
+      setBoeEntries(updated);
+      syncBoeSums(editRow.uid as string, updated);
+      setNewBoeEntry({ amount: "", currency: "INR", rate: "", note: "" });
+    }
+    setEntrySaving(false);
+  }
+
+  async function handleDeleteBoeEntry(entryId: number) {
+    if (!editRow) return;
+    await apiFetch(`${API}/api/boe-entries/${entryId}`, { method: "DELETE" });
+    const remaining = boeEntries.filter((e) => e.id !== entryId);
+    setBoeEntries(remaining);
+    syncBoeSums(editRow.uid as string, remaining);
   }
 
   async function handleSave() {
@@ -214,9 +312,11 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
       );
     }
     if (MONEY_KEYS.has(f.key)) {
-      const currency = (f.key === "pi_rate" || f.key === "pi_total_value")
-        ? (editForm.currency ?? "INR")
-        : "INR";
+      const currency =
+        f.key === "pi_rate" || f.key === "pi_total_value" ? (editForm.currency ?? "INR") :
+        f.key === "dollar_rate" ? (editForm.dollar_rate_currency ?? "INR") :
+        f.key === "custom_exchange_rate" ? (editForm.custom_exchange_rate_currency ?? "INR") :
+        "INR";
       return (
         <AmountInput style={inputStyle} placeholder={f.label} value={editForm[f.key] ?? ""}
           currency={currency} onChange={(raw) => setEditForm((fm) => ({ ...fm, [f.key]: raw }))} />
@@ -262,6 +362,33 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
           >
             ↓ Export
           </button>
+          <button
+            onClick={() => handleExport("template")}
+            style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}
+            title="Download empty CSV template"
+          >
+            ↓ Template
+          </button>
+          <button
+            onClick={() => handleExport("data")}
+            style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}
+            title="Download all rows as CSV"
+          >
+            ↓ CSV
+          </button>
+          <label
+            style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "11px", fontFamily: "var(--font-sans), sans-serif", color: importing ? "#a1a1aa" : "#71717a", cursor: importing ? "default" : "pointer", display: "inline-block" }}
+            onMouseEnter={(e) => { if (!importing) { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; } }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = importing ? "#a1a1aa" : "#71717a"; }}
+            title="Import rows from CSV"
+          >
+            {importing ? "Importing…" : "↑ Import CSV"}
+            <input ref={importRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleImportFile} disabled={importing} />
+          </label>
         </div>
       </div>
 
@@ -311,6 +438,63 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
                   </label>
                 ))}
               </div>
+
+              {currentSection.title === "BOE" && (
+                <div style={{ borderTop: "1px solid #e4e4e7", marginTop: "16px", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif" }}>Actual BOE Entries</span>
+                  <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...inputStyle, textAlign: "left", fontSize: "11px", fontWeight: 600, color: "#71717a", padding: "4px 8px", border: "none" }}>Amount</th>
+                        <th style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", padding: "4px 8px", textAlign: "left" }}>Currency</th>
+                        <th style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", padding: "4px 8px", textAlign: "left" }}>Rate</th>
+                        <th style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", padding: "4px 8px", textAlign: "left" }}>Note</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {boeEntries.map((e) => (
+                        <tr key={e.id}>
+                          <td style={{ padding: "4px 8px", fontSize: "13px" }}>{e.amount}</td>
+                          <td style={{ padding: "4px 8px", fontSize: "13px" }}>{e.currency ?? "INR"}</td>
+                          <td style={{ padding: "4px 8px", fontSize: "13px" }}>{e.currency && e.currency !== "INR" ? (e.rate ?? "—") : "—"}</td>
+                          <td style={{ padding: "4px 8px", fontSize: "13px" }}>{e.note ?? "—"}</td>
+                          <td style={{ padding: "4px 8px" }}>
+                            <button onClick={() => handleDeleteBoeEntry(e.id)}
+                              style={{ padding: "2px 8px", fontSize: "11px", borderRadius: "6px", border: "1px solid #fecaca", background: "transparent", color: "#ef4444", cursor: "pointer" }}>
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr style={{ background: "#fafafa" }}>
+                        <td style={{ padding: "4px 8px" }}><input style={{ ...inputStyle, width: "90px" }} placeholder="Amount" value={newBoeEntry.amount} onChange={(e) => setNewBoeEntry({ ...newBoeEntry, amount: e.target.value })} /></td>
+                        <td style={{ padding: "4px 8px" }}>
+                          <select style={{ ...inputStyle, width: "80px" }} value={newBoeEntry.currency}
+                            onChange={(e) => setNewBoeEntry({ ...newBoeEntry, currency: e.target.value, rate: e.target.value === "INR" ? "" : newBoeEntry.rate })}>
+                            {ENTRY_CCY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: "4px 8px" }}>
+                          <input style={{ ...inputStyle, width: "80px" }} placeholder="Rate" disabled={newBoeEntry.currency === "INR"} value={newBoeEntry.rate}
+                            onChange={(e) => setNewBoeEntry({ ...newBoeEntry, rate: e.target.value })} />
+                        </td>
+                        <td style={{ padding: "4px 8px" }}><input style={{ ...inputStyle, width: "130px" }} placeholder="Note (optional)" value={newBoeEntry.note} onChange={(e) => setNewBoeEntry({ ...newBoeEntry, note: e.target.value })} /></td>
+                        <td style={{ padding: "4px 8px" }}>
+                          <button onClick={handleAddBoeEntry} disabled={entrySaving}
+                            style={{ padding: "4px 10px", fontSize: "12px", fontWeight: 600, borderRadius: "6px", border: "1px solid #09090b", background: "#09090b", color: "#fff", cursor: "pointer" }}>
+                            {entrySaving ? "…" : "Add"}
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b" }}>
+                    <span>Actual BOE (sum): {boeEntries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0).toFixed(2)}</span>
+                    <span>Actual BOE (INR): {boeEntries.reduce((acc, e) => acc + entryInrValue(e), 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}

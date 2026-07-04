@@ -5,6 +5,7 @@ export type Row = Record<string, string | null> & { id: number };
 export const COLUMNS: { key: string; label: string }[] = [
   { key: "uid",                           label: "UID"                      },
   { key: "workflow_status",               label: "Stage"                    },
+  // PO / PI
   { key: "srno",                          label: "Sr No"                    },
   { key: "date_of_po",                    label: "Date of PO"               },
   { key: "supplier_name",                 label: "Supplier Name"            },
@@ -13,21 +14,23 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "po_number",                     label: "PO Number"                },
   { key: "po_quantity",                   label: "PO Quantity"              },
   { key: "po_rate",                       label: "PO Rate"                  },
-  { key: "po_total_value",                label: "Total (INR)"              },
   { key: "pi_number",                     label: "PI Number"                },
   { key: "pi_date",                       label: "PI Date"                  },
   { key: "supplier_model_number",         label: "Supplier Model No"        },
   { key: "pi_quantity",                   label: "PI Quantity"              },
   { key: "pi_rate",                       label: "PI Rate"                  },
-  { key: "pi_total_value",                label: "PI Total Value"           },
-  { key: "currency",                       label: "Currency"                 },
-  { key: "exchange_rate",                  label: "Exchange Rate"            },
+  { key: "currency",                      label: "Currency"                 },
+  { key: "exchange_rate",                 label: "Exchange Rate"            },
+  { key: "pi_total_value",               label: "PI Total Value"           },
+  { key: "po_total_value",               label: "Total (INR)"              },
   { key: "tentative_exworks_at_po_time",  label: "Tentative Ex-Works"       },
   { key: "confirmed_exworks",             label: "Confirmed Ex-Works"       },
   { key: "credit_time",                   label: "Credit Time"              },
+  // Freight Planning
   { key: "etd",                           label: "ETD"                      },
   { key: "port",                          label: "Port"                     },
-  { key: "confirmed_shipping_time",       label: "Confirmed Shipping Time"  },
+  { key: "shipment_status",               label: "Shipment Status"          },
+  { key: "confirmed_shipping_time",       label: "Shipping Time"            },
   { key: "shipping_company",              label: "Shipping Company"         },
   { key: "estimated_destination_charges", label: "Est. Destination Charges" },
   { key: "freight_charges",               label: "Freight Charges"          },
@@ -38,35 +41,41 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "confirmed_eta",                 label: "Confirmed ETA"            },
   { key: "inbond",                        label: "Inbond (Y/N)"             },
   { key: "home_consumption",              label: "Home Consumption (Y/N)"   },
-  { key: "shipment_status",              label: "Shipment Status"          },
+  // BOE
   { key: "boe_no",                        label: "BOE No"                   },
+  { key: "dollar_rate_currency",          label: "DR Currency"              },
   { key: "dollar_rate",                   label: "Dollar Rate"              },
+  { key: "custom_exchange_rate_currency", label: "CER Currency"             },
   { key: "custom_exchange_rate",          label: "Custom Exchange Rate"     },
   { key: "provisional_boe",              label: "Provisional BOE"          },
   { key: "actual_boe",                    label: "Actual BOE"               },
-  { key: "transportation_inbound",        label: "Transport Inbound"        },
-  { key: "transportation_outbound_home",  label: "Transport Outbound/Home"  },
+  { key: "actual_boe_inr",                label: "Actual BOE (INR)"         },
+  // Transportation
   { key: "eway_bill",                     label: "E-Way Bill"               },
   { key: "sap_inward_no",                 label: "SAP Inward No"            },
-  { key: "cha_name",                       label: "CHA Name"                 },
+  { key: "cha_name",                      label: "CHA Name"                 },
   { key: "cha_charges",                   label: "CHA Charges"              },
   { key: "other_charges",                 label: "Other Charges"            },
   { key: "confirmed_destination_charges", label: "Conf. Dest. Charges"      },
-  { key: "total_transport",              label: "Total Transport"           },
+  { key: "transportation_inbound",        label: "Transport Inbound"        },
+  { key: "transportation_outbound_home",  label: "Transport Outbound/Home"  },
+  { key: "total_transport",               label: "Total Transport"          },
   { key: "landing_cost",                  label: "Landing Cost"             },
-  { key: "estimated_due_date",            label: "Estimated Due Date"       },
-  { key: "confirmed_due_date",            label: "Confirmed Due Date"       },
+  // Due Date
+  { key: "estimated_due_date",            label: "Completed Due Date"       },
+  { key: "advance_given",                 label: "Advance Given"            },
   { key: "hedged",                        label: "Hedged (Y/N)"             },
   { key: "confirmed_payment_amt",         label: "Confirmed Payment Amt"    },
   { key: "confirmed_payment_exchange",    label: "Payment Exchange Rate"    },
-  { key: "advance_given",                 label: "Advance Given"            },
 ];
 
 const MONO_KEYS = new Set([
   "srno", "po_quantity", "po_rate", "po_total_value",
   "pi_quantity", "pi_rate", "pi_total_value", "exchange_rate", "credit_time",
   "estimated_destination_charges", "freight_charges",
-  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe",
+  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
+  "dollar_rate_currency", "custom_exchange_rate_currency",
+  "confirmed_shipping_time", "eway_bill",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
   "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",
@@ -77,7 +86,7 @@ const YN_KEYS = new Set(["inbond", "home_consumption", "hedged"]);
 const MONEY_DISPLAY_KEYS = new Set([
   "po_rate", "po_total_value", "pi_rate", "pi_total_value", "exchange_rate",
   "estimated_destination_charges", "freight_charges", "insurance",
-  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe",
+  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
   "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",
@@ -91,17 +100,32 @@ function fmtAmount(val: string | null, currency?: string | null): string | null 
   return num.toLocaleString(locale, { maximumFractionDigits: 2 });
 }
 
-// Columns that carry the row's currency (not always INR)
-const FOREIGN_CCY_KEYS = new Set(["pi_rate", "pi_total_value"]);
+// Columns that carry their own currency (not always INR) — looked up from a sibling column
+const CCY_FOR_KEY: Record<string, string> = {
+  pi_rate: "currency",
+  pi_total_value: "currency",
+  dollar_rate: "dollar_rate_currency",
+  custom_exchange_rate: "custom_exchange_rate_currency",
+};
 
 const STAGE_LABELS: Record<string, string> = {
-  po_pi: "PO/PI",
-  pending_import: "Import ⏳",
-  approved_import: "Import ✓",
-  boe: "BOE",
-  transportation: "Transport",
-  due_date: "Due Date",
-  complete: "Complete",
+  po_pi:           "PO / PI",
+  pending_import:  "Freight (pending)",
+  approved_import: "Freight",
+  boe:             "BOE",
+  transportation:  "Transport",
+  due_date:        "Due Date",
+  complete:        "Complete",
+};
+
+const STAGE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  po_pi:           { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+  pending_import:  { bg: "#fefce8", color: "#92400e", border: "#fde68a" },
+  approved_import: { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" },
+  boe:             { bg: "#faf5ff", color: "#6b21a8", border: "#e9d5ff" },
+  transportation:  { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa" },
+  due_date:        { bg: "#fff1f2", color: "#9f1239", border: "#fecdd3" },
+  complete:        { bg: "#f0fdf4", color: "#14532d", border: "#86efac" },
 };
 
 function YNBadge({ value }: { value: string | null }) {
@@ -125,12 +149,13 @@ function YNBadge({ value }: { value: string | null }) {
 
 function StageBadge({ value }: { value: string | null }) {
   if (!value) return <span style={{ color: "#d4d4d8" }}>—</span>;
+  const { bg, color, border } = STAGE_COLORS[value] ?? { bg: "#f4f4f5", color: "#52525b", border: "#e4e4e7" };
   return (
     <span style={{
-      display: "inline-block", padding: "2px 8px", borderRadius: "6px",
-      border: "1px solid #e4e4e7", background: "#f4f4f5",
+      display: "inline-block", padding: "2px 9px", borderRadius: "6px",
+      border: `1px solid ${border}`, background: bg,
       fontSize: "11px", fontFamily: "var(--font-mono), monospace",
-      color: "#52525b", whiteSpace: "nowrap",
+      color, whiteSpace: "nowrap", fontWeight: 500,
     }}>
       {STAGE_LABELS[value] ?? value}
     </span>
@@ -223,7 +248,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
                   const isYN = YN_KEYS.has(col.key);
                   const isStage = col.key === "workflow_status";
                   const isUid = col.key === "uid";
-                  const ccy = FOREIGN_CCY_KEYS.has(col.key) ? row["currency"] : null;
+                  const ccy = CCY_FOR_KEY[col.key] ? row[CCY_FOR_KEY[col.key]] : null;
                   const displayVal = MONEY_DISPLAY_KEYS.has(col.key) ? fmtAmount(val, ccy) : val;
                   return (
                     <td key={col.key} className="px-4 py-3 whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150"

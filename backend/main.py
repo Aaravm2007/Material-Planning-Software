@@ -7,6 +7,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
+from app.api.admin import router as admin_router
 from app.api.rows import router as rows_router
 from app.api.order_plans import router as order_plans_router
 from app.api.shipping_options import router as shipping_options_router
@@ -77,6 +78,17 @@ async def _run_migrations():
         "ALTER TABLE shipping_options ADD COLUMN exchange_rate VARCHAR",
         "ALTER TABLE material_rows ADD COLUMN shipment_status VARCHAR",
         "ALTER TABLE users ADD COLUMN email VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN fields_entered BOOLEAN DEFAULT 0",
+        "ALTER TABLE material_rows ADD COLUMN modified_by VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN modified_at VARCHAR",
+        "ALTER TABLE order_plans ADD COLUMN supplier_model_number VARCHAR",
+        "ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN force_reauth BOOLEAN DEFAULT 0",
+        "ALTER TABLE material_rows ADD COLUMN dollar_rate_currency VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN custom_exchange_rate_currency VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN actual_boe VARCHAR",
+        "ALTER TABLE actual_boe_entries ADD COLUMN currency VARCHAR",
+        "ALTER TABLE actual_boe_entries ADD COLUMN rate VARCHAR",
     ]
     async with engine.begin() as conn:
         for sql in migrations:
@@ -88,11 +100,18 @@ async def _run_migrations():
 
 @app.on_event("startup")
 async def on_startup():
+    if os.environ.get("DEV_MODE", "").lower() == "true":
+        if "rocketlithum" in os.environ.get("ALLOWED_ORIGINS", ""):
+            raise RuntimeError(
+                "DEV_MODE=true is not allowed when production origins are configured. "
+                "Set DEV_MODE=false in start-backend.bat / start-backend.ps1."
+            )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await _run_migrations()
 
 
+app.include_router(admin_router,            dependencies=_auth)
 app.include_router(rows_router,             dependencies=_auth)
 app.include_router(order_plans_router,      dependencies=_auth)
 app.include_router(shipping_options_router, dependencies=_auth)

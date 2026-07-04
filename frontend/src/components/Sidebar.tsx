@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRole } from "./RoleContext";
-import { API } from "@/lib/apiFetch";
+import { API, apiFetch } from "@/lib/apiFetch";
 
 const NAV = [
   { label: "Master Table",    href: "/master-table"    },
   { label: "Order Planning",  href: "/order-planning"  },
   { label: "PO / PI",         href: "/po-pi"           },
-  { label: "Import Planning", href: "/import-planning" },
+  { label: "Freight Planning", href: "/import-planning" },
   { label: "BOE",             href: "/boe"             },
   { label: "Transportation",  href: "/transportation"  },
   { label: "Due Date",        href: "/due-date"        },
@@ -192,14 +192,17 @@ export default function Sidebar() {
           }}>
             {role}
           </span>
-          <a
-            href={`https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`}
-            style={{ fontSize: "11px", color: "#a1a1aa", textDecoration: "none", fontFamily: "var(--font-sans), sans-serif" }}
+          <button
+            onClick={async () => {
+              await apiFetch(`${API}/api/users/me/signout`, { method: "POST" }).catch(() => {});
+              window.location.href = `https://${process.env.NEXT_PUBLIC_CF_TEAM_DOMAIN ?? "orange-truth-1d23.cloudflareaccess.com"}/cdn-cgi/access/logout`;
+            }}
+            style={{ fontSize: "11px", color: "#a1a1aa", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "var(--font-sans), sans-serif" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "#a1a1aa"; }}
           >
             Sign out
-          </a>
+          </button>
         </div>
       </div>
     </aside>

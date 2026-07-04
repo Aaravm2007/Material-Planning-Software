@@ -33,7 +33,7 @@ const APPROVED_COL_DEFS: ColDef[] = [
   { key: "confirmed_eta",                label: "Conf. ETA",       type: "date"   },
 ];
 
-interface Row { id: number; uid: string; supplier_name: string | null; supplier_code: string | null; rocket_item_code: string | null; [key: string]: string | null | number; }
+interface Row { id: number; uid: string; supplier_name: string | null; supplier_code: string | null; rocket_item_code: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface ShippingOption { id: number; uid: string; name: string | null; shipping_line: string | null; freight: string | null; etd: string | null; eta: string | null; port: string | null; currency: string | null; exchange_rate: string | null; }
 interface ShippingLine { id: number; name: string; }
 interface Port { id: number; name: string; }
@@ -323,7 +323,7 @@ export default function ImportPlanningClient({
   async function handleSaveEdit() {
     if (!editRow) return;
     setEditSaving(true);
-    const body: Record<string, string> = {};
+    const body: Record<string, string | boolean> = { fields_entered: true };
     for (const [k, v] of Object.entries(editForm)) if (v.trim()) body[k] = v.trim();
     const res = await apiFetch(`${API}/api/rows/${editRow.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -338,7 +338,6 @@ export default function ImportPlanningClient({
 
   const APPROVED_COLS = [
     { key: "shipment_status", label: "Status" },
-    { key: "uid", label: "UID" },
     { key: "supplier_name", label: "Supplier" },
     { key: "supplier_code", label: "Supp. Code" },
     { key: "pi_number", label: "PI Number" },
@@ -359,7 +358,7 @@ export default function ImportPlanningClient({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
       {/* Header */}
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>Import Planning</h1>
+        <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>Freight Planning</h1>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button style={btnStyle("ghost")} onClick={() => exportToExcel([...pendingFilter.filteredRows, ...approvedFilter.filteredRows] as Record<string, unknown>[], "import-planning", { uid: "UID", supplier_name: "Supplier", supplier_code: "Supp. Code", pi_number: "PI Number", rocket_item_code: "Item Code", shipment_status: "Status", etd: "ETD", port: "Port", shipping_company: "Shipping Co.", bl_no: "BL No", bl_date: "BL Date", workflow_status: "Stage" })}>↓ Export</button>
           <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>
@@ -379,7 +378,7 @@ export default function ImportPlanningClient({
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {[{ key: "uid", label: "UID" }, { key: "supplier_name", label: "Supplier" }, { key: "supplier_code", label: "Supplier Code" }, { key: "pi_number", label: "PI Number" }, { key: "rocket_item_code", label: "Item Code" }].map((c) => {
+                  {[{ key: "supplier_name", label: "Supplier" }, { key: "supplier_code", label: "Supplier Code" }, { key: "pi_number", label: "PI Number" }, { key: "rocket_item_code", label: "Item Code" }].map((c) => {
                     const isSorted = pendingFilter.sort?.key === c.key;
                     return (
                       <th key={c.key} style={{ ...TH, cursor: "pointer", userSelect: "none" }} onClick={() => pendingFilter.setSort(c.key)}>
@@ -397,13 +396,12 @@ export default function ImportPlanningClient({
               </thead>
               <tbody>
                 {pendingFilter.filteredRows.length === 0 ? (
-                  <tr><td colSpan={6} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "40px" }}>{pending.length === 0 ? "No pending rows" : "No results match filters"}</td></tr>
+                  <tr><td colSpan={5} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "40px" }}>{pending.length === 0 ? "No pending rows" : "No results match filters"}</td></tr>
                 ) : (pendingFilter.filteredRows as Row[]).map((row) => (
                   <tr key={row.uid} style={{ cursor: "pointer" }}
                     onDoubleClick={() => openDialog(row)}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
-                    <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(row.uid).slice(0, 8)}…</td>
                     <td style={TD}>{row.supplier_name ?? "—"}</td>
                     <td style={TD}>{row.supplier_code ?? "—"}</td>
                     <td style={TD}>{row.pi_number ?? "—"}</td>
@@ -477,16 +475,16 @@ export default function ImportPlanningClient({
                         );
                       }
                       return (
-                        <td key={c.key} style={{ ...TD, fontFamily: c.key === "uid" ? "var(--font-mono), monospace" : undefined, fontSize: c.key === "uid" ? "11px" : undefined, color: c.key === "uid" ? "#a1a1aa" : "#09090b" }}>
-                          {c.key === "uid" ? String(row.uid).slice(0, 8) + "…" : (row[c.key] as string) ?? <span style={{ color: "#d4d4d8" }}>—</span>}
+                        <td key={c.key} style={TD}>
+                          {(row[c.key] as string) ?? <span style={{ color: "#d4d4d8" }}>—</span>}
                         </td>
                       );
                     })}
                     <td style={{ ...TD, textAlign: "right" }}>
                       <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
-                        <button style={btnStyle("action")} onClick={() => openEditModal(row)}>Edit Fields</button>
+                        <button style={btnStyle("action")} onClick={() => openEditModal(row)}>{row.fields_entered ? "Edit Fields" : "Enter Fields"}</button>
                         <button style={btnStyle("ghost")} onClick={() => handleReapproval(row)}>↩ Re-approve</button>
-                        <button style={btnStyle("action")} onClick={() => { setWarehousingRow(row); setWarehousingChoice(""); }}>Warehousing →</button>
+                        <button style={{ ...btnStyle("action"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; setWarehousingRow(row); setWarehousingChoice(""); }}>Warehousing →</button>
                       </div>
                     </td>
                   </tr>

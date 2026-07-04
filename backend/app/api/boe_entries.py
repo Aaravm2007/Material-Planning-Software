@@ -13,6 +13,8 @@ router = APIRouter(prefix="/api/boe-entries", tags=["boe-entries"])
 class CreateBoeEntryBody(BaseModel):
     uid: str
     amount: str
+    currency: Optional[str] = None
+    rate: Optional[str] = None
     note: Optional[str] = None
 
 
@@ -24,6 +26,7 @@ async def get_boe_entries(uid: str, db: AsyncSession = Depends(get_db)):
     entries = result.scalars().all()
     return [
         {"id": e.id, "uid": e.uid, "amount": e.amount,
+         "currency": e.currency, "rate": e.rate,
          "note": e.note, "created_at": e.created_at}
         for e in entries
     ]
@@ -34,6 +37,8 @@ async def create_boe_entry(body: CreateBoeEntryBody, db: AsyncSession = Depends(
     entry = ActualBoeEntry(
         uid=body.uid,
         amount=body.amount,
+        currency=body.currency,
+        rate=body.rate,
         note=body.note,
         created_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -41,6 +46,7 @@ async def create_boe_entry(body: CreateBoeEntryBody, db: AsyncSession = Depends(
     await db.commit()
     await db.refresh(entry)
     return {"id": entry.id, "uid": entry.uid, "amount": entry.amount,
+            "currency": entry.currency, "rate": entry.rate,
             "note": entry.note, "created_at": entry.created_at}
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Boolean
 from app.database import Base
 
 
@@ -50,9 +50,12 @@ class MaterialRow(Base):
 
     # BOE stage
     boe_no = Column(String, nullable=True)
+    dollar_rate_currency = Column(String, nullable=True)
     dollar_rate = Column(String, nullable=True)
+    custom_exchange_rate_currency = Column(String, nullable=True)
     custom_exchange_rate = Column(String, nullable=True)
     provisional_boe = Column(String, nullable=True)
+    actual_boe = Column(String, nullable=True)
 
     # Transportation stage
     transportation_inbound = Column(String, nullable=True)
@@ -72,6 +75,9 @@ class MaterialRow(Base):
     confirmed_payment_amt = Column(String, nullable=True)
     confirmed_payment_exchange = Column(String, nullable=True)
     advance_given = Column(String, nullable=True)
+    fields_entered = Column(Boolean, default=False)
+    modified_by = Column(String, nullable=True)
+    modified_at = Column(String, nullable=True)
 
 
 class ActualBoeEntry(Base):
@@ -80,6 +86,8 @@ class ActualBoeEntry(Base):
     id = Column(Integer, primary_key=True, index=True)
     uid = Column(String(36), nullable=False, index=True)
     amount = Column(String, nullable=False)
+    currency = Column(String, nullable=True)
+    rate = Column(String, nullable=True)
     note = Column(String, nullable=True)
     created_at = Column(String, nullable=True)
 
@@ -112,6 +120,7 @@ class OrderPlan(Base):
     target_date = Column(String, nullable=True)
     remark = Column(String, nullable=True)
     created_at = Column(String, nullable=True)
+    supplier_model_number = Column(String, nullable=True)
     # legacy column kept for existing rows
     requirement_date = Column(String, nullable=True)
 
@@ -123,6 +132,8 @@ class User(Base):
     username = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=True)
     role = Column(String, nullable=False, default="user")
+    is_blocked = Column(Boolean, default=False)
+    force_reauth = Column(Boolean, default=False)
 
 
 class Supplier(Base):

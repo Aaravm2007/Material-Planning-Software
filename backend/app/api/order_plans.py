@@ -25,6 +25,7 @@ def _plan_dict(p: OrderPlan, ordered_qty: float = 0.0, has_orders: bool = False)
         "id": p.id,
         "uid": p.uid,
         "supplier_name": p.supplier_name,
+        "supplier_model_number": p.supplier_model_number,
         "quantity": p.quantity,
         "rate": p.rate,
         "target_date": p.target_date,
@@ -37,6 +38,7 @@ def _plan_dict(p: OrderPlan, ordered_qty: float = 0.0, has_orders: bool = False)
 
 class CreateOrderPlanBody(BaseModel):
     supplier_name: str
+    supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
     rate: Optional[str] = None
     target_date: Optional[str] = None
@@ -69,6 +71,7 @@ async def create_order_plan(body: CreateOrderPlanBody, db: AsyncSession = Depend
     plan = OrderPlan(
         uid=str(uuid.uuid4()),
         supplier_name=body.supplier_name,
+        supplier_model_number=body.supplier_model_number,
         quantity=body.quantity,
         rate=body.rate,
         target_date=body.target_date,

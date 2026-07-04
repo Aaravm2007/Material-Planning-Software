@@ -6,20 +6,36 @@ import { usePolling } from "@/lib/usePolling";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
+import AmountInput from "@/components/AmountInput";
+
+const CCY_OPTIONS = ["USD", "EUR", "CNY", "GBP", "AED", "INR"];
+const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
 
 const BOE_FILTER_DEFS: ColDef[] = [
-  { key: "supplier_name",        label: "Supplier",        type: "text"   },
-  { key: "supplier_code",        label: "Supp. Code",      type: "text"   },
-  { key: "pi_number",            label: "PI Number",       type: "text"   },
-  { key: "boe_no",               label: "BOE No",          type: "text"   },
-  { key: "dollar_rate",          label: "Dollar Rate",     type: "amount" },
-  { key: "custom_exchange_rate", label: "Custom Exch. Rate", type: "amount" },
-  { key: "actual_boe",           label: "Actual BOE",      type: "amount" },
+  { key: "supplier_name",                 label: "Supplier",              type: "text"   },
+  { key: "supplier_code",                 label: "Supp. Code",            type: "text"   },
+  { key: "pi_number",                     label: "PI Number",             type: "text"   },
+  { key: "boe_no",                        label: "BOE No",                type: "text"   },
+  { key: "dollar_rate_currency",          label: "DR Currency",           type: "select", options: CCY_OPTIONS },
+  { key: "dollar_rate",                   label: "Dollar Rate",           type: "amount" },
+  { key: "custom_exchange_rate_currency", label: "CER Currency",          type: "select", options: CCY_OPTIONS },
+  { key: "custom_exchange_rate",          label: "Custom Exchange Rate", type: "amount" },
+  { key: "actual_boe",                    label: "Actual BOE",            type: "amount" },
+  { key: "actual_boe_inr",                label: "Actual BOE (INR)",      type: "amount" },
 ];
 
-interface Row { id: number; uid: string; po_total_value: string | null; freight_charges: string | null; boe_no: string | null; dollar_rate: string | null; custom_exchange_rate: string | null; provisional_boe: string | null; actual_boe: string | null; [key: string]: string | null | number; }
-interface BoeEntry { id: number; uid: string; amount: string; note: string | null; }
-
+interface Row {
+  id: number; uid: string;
+  po_total_value: string | null; freight_charges: string | null;
+  boe_no: string | null;
+  dollar_rate_currency: string | null; dollar_rate: string | null;
+  custom_exchange_rate_currency: string | null; custom_exchange_rate: string | null;
+  provisional_boe: string | null;
+  actual_boe: string | null; actual_boe_inr: string | null;
+  fields_entered: boolean | null;
+  [key: string]: string | null | number | boolean;
+}
+interface BoeEntry { id: number; uid: string; amount: string; currency: string | null; rate: string | null; note: string | null; }
 
 const btnStyle = (v: "primary" | "ghost" | "action"): React.CSSProperties => ({
   padding: "5px 12px", borderRadius: "7px", fontSize: "12px", fontWeight: 600,
@@ -45,57 +61,82 @@ function calcProvisional(row: Row): string {
   return val > 0 ? val.toFixed(2) : "—";
 }
 
+function entryInrValue(e: { amount: string; currency: string | null; rate: string | null }): number {
+  const amount = parseFloat(e.amount) || 0;
+  if (e.currency && e.currency !== "INR") return amount * (parseFloat(e.rate ?? "") || 0);
+  return amount;
+}
+
 export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialRows);
   const { filteredRows, filters, sort, distinctValues, setFilter, setSort } =
     useTableState(rows as unknown as Record<string, unknown>[], BOE_FILTER_DEFS, "boe");
   async function fetchRows() {
-    const res = await apiFetch(`${API}/api/rows/`);
+    const res = await apiFetch(`${API}/api/rows/stage/boe`);
     if (res.ok) setRows(await res.json());
   }
   useEffect(() => { fetchRows(); }, []);
   usePolling(fetchRows, 10_000);
 
-  const [boeModal, setBoeModal] = useState<{ uid: string; entries: BoeEntry[] } | null>(null);
-  const [newEntry, setNewEntry] = useState({ amount: "", note: "" });
   const [editModal, setEditModal] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [entries, setEntries] = useState<BoeEntry[]>([]);
+  const [newEntry, setNewEntry] = useState({ amount: "", currency: "INR", rate: "", note: "" });
   const [saving, setSaving] = useState(false);
 
-  async function openBoeModal(uid: string) {
-    const res = await apiFetch(`${API}/api/boe-entries/${uid}`);
-    const entries = res.ok ? await res.json() : [];
-    setBoeModal({ uid, entries });
+  function syncActualBoe(uid: string, entryList: BoeEntry[]) {
+    const sum = entryList.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
+    const inrSum = entryList.reduce((acc, e) => acc + entryInrValue(e), 0);
+    setRows((r) => r.map((row) => row.uid === uid ? {
+      ...row,
+      actual_boe: sum > 0 ? String(sum.toFixed(2)) : "0",
+      actual_boe_inr: inrSum > 0 ? String(inrSum.toFixed(2)) : "0",
+    } : row));
   }
 
-  function syncActualBoe(uid: string, entries: BoeEntry[]) {
-    const sum = entries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
-    setRows((r) => r.map((row) => row.uid === uid ? { ...row, actual_boe: sum > 0 ? String(sum.toFixed(2)) : "0" } : row));
+  async function openEditModal(row: Row) {
+    setEditModal(row);
+    setEditForm({
+      boe_no: String(row.boe_no ?? ""),
+      dollar_rate_currency: String(row.dollar_rate_currency ?? ""),
+      dollar_rate: String(row.dollar_rate ?? ""),
+      custom_exchange_rate_currency: String(row.custom_exchange_rate_currency ?? ""),
+      custom_exchange_rate: String(row.custom_exchange_rate ?? ""),
+    });
+    setNewEntry({ amount: "", currency: "INR", rate: "", note: "" });
+    const res = await apiFetch(`${API}/api/boe-entries/${row.uid}`);
+    setEntries(res.ok ? await res.json() : []);
   }
 
   async function handleAddEntry() {
-    if (!boeModal || !newEntry.amount) return;
+    if (!editModal || !newEntry.amount) return;
     setSaving(true);
     const res = await apiFetch(`${API}/api/boe-entries/`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid: boeModal.uid, ...newEntry }),
+      body: JSON.stringify({
+        uid: editModal.uid,
+        amount: newEntry.amount,
+        currency: newEntry.currency,
+        rate: newEntry.currency === "INR" ? null : newEntry.rate,
+        note: newEntry.note || null,
+      }),
     });
     if (res.ok) {
       const created = await res.json();
-      const newEntries = [...boeModal.entries, created];
-      setBoeModal((m) => m ? { ...m, entries: newEntries } : m);
-      syncActualBoe(boeModal.uid, newEntries);
-      setNewEntry({ amount: "", note: "" });
+      const newEntries = [...entries, created];
+      setEntries(newEntries);
+      syncActualBoe(editModal.uid, newEntries);
+      setNewEntry({ amount: "", currency: "INR", rate: "", note: "" });
     }
     setSaving(false);
   }
 
   async function handleDeleteEntry(entryId: number) {
-    if (!boeModal) return;
+    if (!editModal) return;
     await apiFetch(`${API}/api/boe-entries/${entryId}`, { method: "DELETE" });
-    const remaining = boeModal.entries.filter((e) => e.id !== entryId);
-    setBoeModal((m) => m ? { ...m, entries: remaining } : m);
-    syncActualBoe(boeModal.uid, remaining);
+    const remaining = entries.filter((e) => e.id !== entryId);
+    setEntries(remaining);
+    syncActualBoe(editModal.uid, remaining);
   }
 
   async function handleSaveEdit() {
@@ -103,7 +144,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     setSaving(true);
     const res = await apiFetch(`${API}/api/rows/${editModal.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({ ...editForm, fields_entered: true }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -129,17 +170,24 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     setRows((r) => r.filter((row) => row.uid !== uid));
   }
 
+  // provisional_boe_calc is a client-side computed preview (not a real row field), so it
+  // carries no filter and is kept as a trailing column to stay aligned with the filter row.
   const BOE_COLS = [
-    { key: "uid", label: "UID" },
     { key: "supplier_name", label: "Supplier" },
     { key: "supplier_code", label: "Supp. Code" },
     { key: "pi_number", label: "PI Number" },
     { key: "boe_no", label: "BOE No" },
+    { key: "dollar_rate_currency", label: "DR Currency" },
     { key: "dollar_rate", label: "Dollar Rate" },
+    { key: "custom_exchange_rate_currency", label: "CER Currency" },
     { key: "custom_exchange_rate", label: "Custom Exchange Rate" },
-    { key: "provisional_boe_calc", label: "Provisional BOE (auto)" },
     { key: "actual_boe", label: "Actual BOE (sum)" },
+    { key: "actual_boe_inr", label: "Actual BOE (INR)" },
+    { key: "provisional_boe_calc", label: "Provisional BOE (auto)" },
   ];
+
+  const entrySum = entries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
+  const entryInrSum = entries.reduce((acc, e) => acc + entryInrValue(e), 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
@@ -170,7 +218,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
               })}
               <th style={{ ...TH, textAlign: "right" }}>Actions</th>
             </tr>
-            <InlineFilters colDefs={BOE_FILTER_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={1} />
+            <InlineFilters colDefs={BOE_FILTER_DEFS} filters={filters} distinctValues={distinctValues} onFilter={setFilter} leadingCells={1} trailingCells={2} />
           </thead>
           <tbody>
             {filteredRows.length === 0 ? (
@@ -181,16 +229,9 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(i + 1).padStart(3, "0")}</td>
                 {BOE_COLS.map((col) => {
-                  if (col.key === "uid") return <td key="uid" style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(row.uid).slice(0, 8)}…</td>;
                   if (col.key === "provisional_boe_calc") return <td key="provisional_boe_calc" style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{calcProvisional(row)}</td>;
-                  if (col.key === "actual_boe") return (
-                    <td key="actual_boe" style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        {row.actual_boe ?? "0"}
-                        <button style={{ ...btnStyle("action"), padding: "2px 8px", fontSize: "11px" }} onClick={() => openBoeModal(row.uid as string)}>+ Add</button>
-                      </div>
-                    </td>
-                  );
+                  if (col.key === "actual_boe") return <td key="actual_boe" style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.actual_boe ?? "0"}</td>;
+                  if (col.key === "actual_boe_inr") return <td key="actual_boe_inr" style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.actual_boe_inr ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
                   const v = String(row[col.key] ?? "");
                   const mono = col.key !== "supplier_name";
                   return <td key={col.key} style={{ ...TD, fontFamily: mono ? "var(--font-mono), monospace" : undefined }}>{v || <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
@@ -198,8 +239,10 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                     <button style={btnStyle("ghost")} onClick={() => handleBack(row.uid as string)}>← Import</button>
-                    <button style={btnStyle("action")} onClick={() => { setEditModal(row); setEditForm({ boe_no: String(row.boe_no ?? ""), dollar_rate: String(row.dollar_rate ?? ""), custom_exchange_rate: String(row.custom_exchange_rate ?? "") }); }}>Edit</button>
-                    <button style={btnStyle("primary")} onClick={() => handleAdvance(row.uid as string)}>→ Transport</button>
+                    <button style={btnStyle("action")} onClick={() => openEditModal(row)}>
+                      {row.fields_entered ? "Edit Fields" : "Enter Fields"}
+                    </button>
+                    <button style={{ ...btnStyle("primary"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleAdvance(row.uid as string); }}>→ Transport</button>
                   </div>
                 </td>
               </tr>
@@ -208,46 +251,80 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
         </table>
       </div>
 
-      {/* Actual BOE entries modal */}
-      {boeModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onKeyDown={(e) => { if (e.key === "Enter") handleAddEntry(); }}>
-          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "500px", maxHeight: "80vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>Actual BOE Entries</h2>
-            <table style={{ borderCollapse: "collapse", width: "100%" }}>
-              <thead><tr><th style={TH}>Amount</th><th style={TH}>Note</th><th style={TH}></th></tr></thead>
-              <tbody>
-                {boeModal.entries.map((e) => (
-                  <tr key={e.id}><td style={TD}>{e.amount}</td><td style={TD}>{e.note ?? "—"}</td>
-                    <td style={TD}><button style={{ ...btnStyle("ghost"), padding: "2px 8px", fontSize: "11px", color: "#ef4444", borderColor: "#fecaca" }} onClick={() => handleDeleteEntry(e.id)}>✕</button></td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#fafafa" }}>
-                  <td style={{ padding: "6px 8px" }}><input style={{ ...inputStyle, width: "120px" }} placeholder="Amount" value={newEntry.amount} onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })} /></td>
-                  <td style={{ padding: "6px 8px" }}><input style={{ ...inputStyle, width: "160px" }} placeholder="Note (optional)" value={newEntry.note} onChange={(e) => setNewEntry({ ...newEntry, note: e.target.value })} /></td>
-                  <td style={{ padding: "6px 8px" }}><button style={btnStyle("primary")} onClick={handleAddEntry} disabled={saving}>{saving ? "…" : "Add"}</button></td>
-                </tr>
-              </tbody>
-            </table>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => setBoeModal(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Edit modal */}
       {editModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); }}>
-          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "420px", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "560px", maxHeight: "88vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>Edit BOE Fields</h2>
-            {[{ key: "boe_no", label: "BOE No" }, { key: "dollar_rate", label: "Dollar Rate" }, { key: "custom_exchange_rate", label: "Custom Exchange Rate" }].map((f) => (
-              <label key={f.key} style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-                {f.label}
-                <input style={inputStyle} value={editForm[f.key] ?? ""} onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.value })} />
+
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+              BOE No
+              <input style={inputStyle} value={editForm.boe_no ?? ""} onChange={(e) => setEditForm({ ...editForm, boe_no: e.target.value })} />
+            </label>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                DR Currency
+                <select style={inputStyle} value={editForm.dollar_rate_currency ?? ""} onChange={(e) => setEditForm({ ...editForm, dollar_rate_currency: e.target.value })}>
+                  <option value="">—</option>
+                  {CCY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               </label>
-            ))}
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Dollar Rate
+                <AmountInput style={inputStyle} value={editForm.dollar_rate ?? ""} currency={editForm.dollar_rate_currency}
+                  onChange={(raw) => setEditForm({ ...editForm, dollar_rate: raw })} />
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                CER Currency
+                <select style={inputStyle} value={editForm.custom_exchange_rate_currency ?? ""} onChange={(e) => setEditForm({ ...editForm, custom_exchange_rate_currency: e.target.value })}>
+                  <option value="">—</option>
+                  {CCY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Custom Exchange Rate
+                <AmountInput style={inputStyle} value={editForm.custom_exchange_rate ?? ""} currency={editForm.custom_exchange_rate_currency}
+                  onChange={(raw) => setEditForm({ ...editForm, custom_exchange_rate: raw })} />
+              </label>
+            </div>
+
+            <div style={{ borderTop: "1px solid #e4e4e7", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#52525b" }}>Actual BOE Entries</span>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead><tr><th style={TH}>Amount</th><th style={TH}>Currency</th><th style={TH}>Rate</th><th style={TH}>Note</th><th style={TH}></th></tr></thead>
+                <tbody>
+                  {entries.map((e) => (
+                    <tr key={e.id}>
+                      <td style={TD}>{e.amount}</td>
+                      <td style={TD}>{e.currency ?? "INR"}</td>
+                      <td style={TD}>{e.currency && e.currency !== "INR" ? (e.rate ?? "—") : "—"}</td>
+                      <td style={TD}>{e.note ?? "—"}</td>
+                      <td style={TD}><button style={{ ...btnStyle("ghost"), padding: "2px 8px", fontSize: "11px", color: "#ef4444", borderColor: "#fecaca" }} onClick={() => handleDeleteEntry(e.id)}>✕</button></td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: "#fafafa" }}>
+                    <td style={{ padding: "6px 8px" }}><input style={{ ...inputStyle, width: "90px" }} placeholder="Amount" value={newEntry.amount} onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })} /></td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <select style={{ ...inputStyle, width: "80px" }} value={newEntry.currency} onChange={(e) => setNewEntry({ ...newEntry, currency: e.target.value, rate: e.target.value === "INR" ? "" : newEntry.rate })}>
+                        {ENTRY_CCY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <input style={{ ...inputStyle, width: "80px" }} placeholder="Rate" disabled={newEntry.currency === "INR"} value={newEntry.rate}
+                        onChange={(e) => setNewEntry({ ...newEntry, rate: e.target.value })} />
+                    </td>
+                    <td style={{ padding: "6px 8px" }}><input style={{ ...inputStyle, width: "130px" }} placeholder="Note (optional)" value={newEntry.note} onChange={(e) => setNewEntry({ ...newEntry, note: e.target.value })} /></td>
+                    <td style={{ padding: "6px 8px" }}><button style={btnStyle("primary")} onClick={handleAddEntry} disabled={saving}>{saving ? "…" : "Add"}</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b" }}>
+                <span>Sum: {entrySum > 0 ? entrySum.toFixed(2) : "0"}</span>
+                <span>Actual BOE (INR): {entryInrSum > 0 ? entryInrSum.toFixed(2) : "0"}</span>
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setEditModal(null)}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleSaveEdit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>

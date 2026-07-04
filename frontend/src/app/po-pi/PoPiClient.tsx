@@ -9,12 +9,11 @@ import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 
-interface Row { id: number; uid: string; [key: string]: string | null | number; }
+interface Row { id: number; uid: string; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
 
 const PO_PI_COLS = [
-  { key: "uid",                   label: "UID"              },
   { key: "date_of_po",            label: "Date of PO"       },
   { key: "supplier_name",         label: "Supplier Name"    },
   { key: "rocket_item_code",      label: "Rocket Item Code" },
@@ -94,7 +93,6 @@ const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontS
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
 
 const POPI_COL_DEFS: ColDef[] = [
-  { key: "uid",                   label: "UID",               type: "text"   },
   { key: "date_of_po",            label: "Date of PO",        type: "date"   },
   { key: "supplier_name",         label: "Supplier Name",     type: "text"   },
   { key: "rocket_item_code",      label: "Rocket Item Code",  type: "text"   },
@@ -125,9 +123,11 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [newModelModal, setNewModelModal] = useState(false);
+  const [editModal, setEditModal] = useState<Row | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
 
   async function fetchRows() {
-    const res = await apiFetch(`${API}/api/rows/`);
+    const res = await apiFetch(`${API}/api/rows/stage/po_pi`);
     if (res.ok) setRows(await res.json());
   }
   useEffect(() => {
@@ -209,6 +209,35 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   async function handleDelete(uid: string) {
     await apiFetch(`${API}/api/rows/${uid}`, { method: "DELETE" });
     setRows((r) => r.filter((x) => x.uid !== uid));
+  }
+
+  function openEdit(row: Row) {
+    setEditForm({
+      pi_number: String(row.pi_number ?? ""),
+      pi_date: String(row.pi_date ?? ""),
+      pi_quantity: String(row.pi_quantity ?? ""),
+      pi_rate: String(row.pi_rate ?? ""),
+      currency: String(row.currency ?? ""),
+      exchange_rate: String(row.exchange_rate ?? ""),
+      confirmed_exworks: String(row.confirmed_exworks ?? ""),
+      credit_time: String(row.credit_time ?? ""),
+    });
+    setEditModal(row);
+  }
+
+  async function handleSaveEdit() {
+    if (!editModal) return;
+    setSaving(true);
+    const res = await apiFetch(`${API}/api/rows/${editModal.uid as string}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...editForm, fields_entered: true }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setRows((r) => r.map((row) => row.uid === updated.uid ? updated : row));
+      setEditModal(null);
+    }
+    setSaving(false);
   }
 
   async function handleGoToImport(uid: string) {
@@ -324,7 +353,10 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
                 ))}
                 <td style={{ ...TD, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
-                    <button style={btnStyle("action")} onClick={() => handleGoToImport(row.uid as string)}>Go to Import →</button>
+                    <button style={btnStyle("action")} onClick={() => openEdit(row)}>
+                      {row.fields_entered ? "Edit Fields" : "Enter Fields"}
+                    </button>
+                    <button style={{ ...btnStyle("primary"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleGoToImport(row.uid as string); }}>Go to Import →</button>
                     <button style={btnStyle("danger")} onClick={() => handleDelete(row.uid as string)}>Delete</button>
                   </div>
                 </td>
@@ -369,6 +401,47 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm(emptyForm()); setSelectedSupplier(null); setSupplierModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); }}>
+          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "480px", maxHeight: "80vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px" }}>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>{editModal.fields_entered ? "Edit Fields" : "Enter Fields"} — PO / PI</h2>
+            {[
+              { key: "pi_number",       label: "PI Number",      type: "text"   },
+              { key: "pi_date",         label: "PI Date",        type: "date"   },
+              { key: "pi_quantity",     label: "PI Quantity",    type: "number" },
+              { key: "pi_rate",         label: "PI Rate",        type: "text"   },
+              { key: "confirmed_exworks", label: "Ex-Works Date", type: "date"  },
+              { key: "credit_time",     label: "Credit Time (days)", type: "number" },
+            ].map((f) => (
+              <label key={f.key} style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                {f.label}
+                <input type={f.type} style={inputStyle} value={editForm[f.key] ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} />
+              </label>
+            ))}
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Currency
+              <select style={inputStyle} value={editForm.currency ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, currency: e.target.value, exchange_rate: e.target.value === "INR" ? "" : prev.exchange_rate }))}>
+                <option value="">— select —</option>
+                <option value="USD">USD</option>
+                <option value="INR">INR</option>
+                <option value="CNY">CNY</option>
+              </select>
+            </label>
+            {editForm.currency && editForm.currency !== "INR" && (
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Exchange Rate (1 {editForm.currency} = ? INR)
+                <input type="text" style={inputStyle} value={editForm.exchange_rate ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, exchange_rate: e.target.value }))} />
+              </label>
+            )}
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button style={btnStyle("ghost")} onClick={() => setEditModal(null)}>Cancel</button>
+              <button style={btnStyle("primary")} onClick={handleSaveEdit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
             </div>
           </div>
         </div>

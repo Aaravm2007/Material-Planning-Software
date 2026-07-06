@@ -44,6 +44,11 @@ const DIALOG_FIELDS = [
   "confirmed_exworks", "credit_time",
 ] as const;
 
+// Fields actually shown in the "Enter/Edit Fields" dialog (openEdit) -- a subset
+// of DIALOG_FIELDS, since supplier/PO identity fields are set once at row
+// creation and aren't part of this dialog.
+const EDIT_FIELDS = ["pi_number", "pi_date", "pi_quantity", "pi_rate", "currency", "exchange_rate", "confirmed_exworks", "credit_time"] as const;
+
 const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks"]);
 
 const LABELS: Record<string, string> = {
@@ -264,7 +269,9 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   async function handleSaveEdit() {
     if (!editModal) return;
     setSaving(true);
-    const allFilled = DIALOG_FIELDS.every((k) => (editForm[k] ?? "").trim() !== "");
+    // exchange_rate isn't shown/required when currency is INR (no conversion needed)
+    const requiredFields = editForm.currency === "INR" ? EDIT_FIELDS.filter((k) => k !== "exchange_rate") : EDIT_FIELDS;
+    const allFilled = requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
     const res = await apiFetch(`${API}/api/rows/${editModal.uid as string}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...editForm, fields_entered: allFilled }),

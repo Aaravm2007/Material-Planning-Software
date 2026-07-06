@@ -68,6 +68,7 @@ function calcEstimatedDueDate(row: Row): string {
   const days = parseInt(creditTime as string, 10);
   if (isNaN(days)) return "—";
   const d = new Date(blDate as string);
+  if (isNaN(d.getTime())) return "—";
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }

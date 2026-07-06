@@ -44,18 +44,22 @@ function calcEstimatedDueDate(row: Row): string | null {
   const days = parseInt(row.credit_time as string, 10);
   if (isNaN(days)) return null;
   const d = new Date(row.bl_date as string);
+  if (isNaN(d.getTime())) return null;
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
 function isOverdue(dateStr: string | null): boolean {
   if (!dateStr) return false;
-  return new Date(dateStr) < new Date(new Date().toISOString().slice(0, 10));
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
+  return d < new Date(new Date().toISOString().slice(0, 10));
 }
 
 function isDueSoon(dateStr: string | null): boolean {
   if (!dateStr) return false;
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
   const now = new Date(new Date().toISOString().slice(0, 10));
   const diff = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= 14;

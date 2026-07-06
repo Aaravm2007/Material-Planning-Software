@@ -121,6 +121,7 @@ class OrderPlan(Base):
     remark = Column(String, nullable=True)
     created_at = Column(String, nullable=True)
     supplier_model_number = Column(String, nullable=True)
+    unit = Column(String, nullable=True)  # "nos" | "containers"
     # legacy column kept for existing rows
     requirement_date = Column(String, nullable=True)
 

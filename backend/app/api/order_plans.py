@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
 from app.models import OrderPlan, MaterialRow, User
 from app.deps import require_expert
+from app.api.rows import PO_PI_FIELDS
 
 router = APIRouter(prefix="/api/order-plans", tags=["order-plans"])
 
@@ -28,6 +29,7 @@ def _plan_dict(p: OrderPlan, ordered_qty: float = 0.0, has_orders: bool = False)
         "supplier_name": p.supplier_name,
         "supplier_model_number": p.supplier_model_number,
         "quantity": p.quantity,
+        "unit": p.unit or "nos",
         "rate": p.rate,
         "target_date": p.target_date,
         "remark": p.remark,
@@ -41,6 +43,7 @@ class CreateOrderPlanBody(BaseModel):
     supplier_name: str
     supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
+    unit: Optional[str] = None
     rate: Optional[str] = None
     target_date: Optional[str] = None
     remark: Optional[str] = None
@@ -50,6 +53,7 @@ class UpdateOrderPlanBody(BaseModel):
     supplier_name: Optional[str] = None
     supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
+    unit: Optional[str] = None
     rate: Optional[str] = None
     target_date: Optional[str] = None
     remark: Optional[str] = None
@@ -76,6 +80,22 @@ async def get_order_plans(db: AsyncSession = Depends(get_db)):
     return [_plan_dict(p, ordered.get(p.id, 0.0), p.id in linked) for p in plans]
 
 
+@router.get("/{plan_id}/rows")
+async def get_order_plan_rows(plan_id: int, db: AsyncSession = Depends(get_db)):
+    """PO/PI rows already linked to this order plan (used to resume paginated
+    container entry at the right index and to pre-fill the next page)."""
+    result = await db.execute(
+        select(MaterialRow)
+        .where(MaterialRow.order_plan_id == plan_id)
+        .order_by(MaterialRow.id)
+    )
+    rows = result.scalars().all()
+    return [
+        {"id": r.id, "uid": r.uid, **{f: getattr(r, f) for f in PO_PI_FIELDS}}
+        for r in rows
+    ]
+
+
 @router.post("/", status_code=201)
 async def create_order_plan(body: CreateOrderPlanBody, db: AsyncSession = Depends(get_db)):
     plan = OrderPlan(
@@ -83,6 +103,7 @@ async def create_order_plan(body: CreateOrderPlanBody, db: AsyncSession = Depend
         supplier_name=body.supplier_name,
         supplier_model_number=body.supplier_model_number,
         quantity=body.quantity,
+        unit=body.unit or "nos",
         rate=body.rate,
         target_date=body.target_date,
         remark=body.remark,
@@ -125,5 +146,11 @@ async def delete_order_plan(plan_id: int, db: AsyncSession = Depends(get_db)):
     plan = result.scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=404, detail="Order plan not found")
+    # Unlink any PO/PI rows before deleting, so a later plan that happens to
+    # reuse this same id (SQLite recycles freed integer ids) never inherits
+    # someone else's rows.
+    await db.execute(
+        update(MaterialRow).where(MaterialRow.order_plan_id == plan_id).values(order_plan_id=None)
+    )
     await db.delete(plan)
     await db.commit()

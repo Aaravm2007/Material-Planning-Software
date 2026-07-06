@@ -15,6 +15,7 @@ interface Plan {
   supplier_name: string;
   supplier_model_number: string | null;
   quantity: string | null;
+  unit: string | null;
   rate: string | null;
   target_date: string | null;
   remark: string | null;
@@ -88,6 +89,7 @@ export const ORDER_PLANNING_COLS_BASE = [
   { key: "supplier_name",          label: "Supplier"        },
   { key: "supplier_model_number",  label: "Model No."       },
   { key: "quantity",               label: "Planned Qty"     },
+  { key: "unit",                   label: "Unit"            },
   { key: "ordered_quantity",       label: "Ordered Qty"     },
   { key: "quantity_diff",          label: "Difference"      },
   { key: "rate",                   label: "Rate"            },
@@ -104,6 +106,8 @@ function renderPlanCell(col: { key: string; label: string }, p: Plan) {
       return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
     case "quantity":
       return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+    case "unit":
+      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#71717a", textTransform: "capitalize" }}>{p.unit === "containers" ? "Containers" : "Nos"}</td>;
     case "ordered_quantity":
       return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
     case "quantity_diff": {
@@ -139,12 +143,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const COLS = useMemo(() => applyColumnOrder(ORDER_PLANNING_COLS_BASE, columnOrder), [columnOrder]);
 
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+  const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
   const [createModels, setCreateModels] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [editModal, setEditModal] = useState<Plan | null>(null);
-  const [editForm, setEditForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+  const [editForm, setEditForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
   const [editModels, setEditModels] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -154,6 +158,9 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [selectedPoPiSupplier, setSelectedPoPiSupplier] = useState<Supplier | null>(null);
   const [poPiModels, setPoPiModels] = useState<string[]>([]);
   const [newModelModal, setNewModelModal] = useState(false);
+  // Set when the order plan's unit is "containers": tracks how many container
+  // rows (total) need PO/PI entries and which one (index, 0-based) is on screen.
+  const [containerInfo, setContainerInfo] = useState<{ total: number; index: number } | null>(null);
 
   async function fetchPlans() {
     const res = await apiFetch(`${API}/api/order-plans/`);
@@ -187,7 +194,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   async function handleCreate() {
     if (!form.supplier_name) return;
     setSaving(true);
-    const body: Record<string, string> = { supplier_name: form.supplier_name };
+    const body: Record<string, string> = { supplier_name: form.supplier_name, unit: form.unit };
     if (form.supplier_model_number.trim()) body.supplier_model_number = form.supplier_model_number.trim();
     if (form.quantity.trim()) body.quantity = form.quantity.trim();
     if (form.rate.trim()) body.rate = form.rate.trim();
@@ -200,7 +207,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       const created = await res.json();
       setPlans((p) => [created, ...p]);
       setShowModal(false);
-      setForm({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" });
+      setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
       setCreateModels([]);
     }
     setSaving(false);
@@ -216,6 +223,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       supplier_name: plan.supplier_name ?? "",
       supplier_model_number: plan.supplier_model_number ?? "",
       quantity: plan.quantity ?? "",
+      unit: plan.unit === "containers" ? "containers" : "nos",
       rate: plan.rate ?? "",
       target_date: plan.target_date ?? "",
       remark: plan.remark ?? "",
@@ -235,7 +243,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   async function handleEditSave() {
     if (!editModal || !editForm.supplier_name) return;
     setEditSaving(true);
-    const body: Record<string, string> = { supplier_name: editForm.supplier_name };
+    const body: Record<string, string> = { supplier_name: editForm.supplier_name, unit: editForm.unit };
     body.supplier_model_number = editForm.supplier_model_number.trim();
     body.quantity = editForm.quantity.trim();
     body.rate = editForm.rate.trim();
@@ -252,17 +260,49 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     setEditSaving(false);
   }
 
-  function openPoPiModal(plan: Plan) {
+  function basePrefilledForm(plan: Plan): PoPiForm {
     const prefilled = emptyPoPiForm();
     prefilled.supplier_name = plan.supplier_name;
-    // pre-fill PI fields from plan quantity/rate
-    if (plan.quantity) prefilled.pi_quantity = plan.quantity;
+    // Quantity means "number of containers" (not a per-row quantity) when
+    // unit=containers, so only carry it into pi_quantity for the "nos" case.
+    if (plan.unit !== "containers" && plan.quantity) prefilled.pi_quantity = plan.quantity;
     if (plan.rate) prefilled.pi_rate = plan.rate;
+    prefilled.pi_total_value = calcPiTotal(prefilled);
+    return prefilled;
+  }
+
+  function formFromRow(row: Record<string, string | null>): PoPiForm {
+    const prefilled = emptyPoPiForm();
+    for (const f of PO_PI_DIALOG_FIELDS) prefilled[f] = row[f] ?? "";
+    prefilled.pi_total_value = calcPiTotal(prefilled);
+    return prefilled;
+  }
+
+  async function openPoPiModal(plan: Plan) {
+    if (plan.unit === "containers") {
+      const total = parseInt(plan.quantity || "0", 10) || 0;
+      const res = await apiFetch(`${API}/api/order-plans/${plan.id}/rows`);
+      const existingRows: Record<string, string | null>[] = res.ok ? await res.json() : [];
+      if (total > 0 && existingRows.length >= total) {
+        alert(`All ${total} containers already have PO/PI rows for this plan.`);
+        router.push("/po-pi");
+        return;
+      }
+      const last = existingRows[existingRows.length - 1];
+      const prefilled = last ? formFromRow(last) : basePrefilledForm(plan);
+      const match = suppliers.find((s) => s.supplier_name === prefilled.supplier_name) ?? null;
+      if (match) { prefilled.supplier_code = match.supplier_code; fetchPoPiModels(match); }
+      setSelectedPoPiSupplier(match);
+      setContainerInfo({ total, index: existingRows.length });
+      setPoPiForm(prefilled);
+      setPoPiModal(plan);
+      return;
+    }
+    setContainerInfo(null);
+    const prefilled = basePrefilledForm(plan);
     const match = suppliers.find((s) => s.supplier_name === plan.supplier_name) ?? null;
     if (match) { prefilled.supplier_code = match.supplier_code; fetchPoPiModels(match); }
     setSelectedPoPiSupplier(match);
-    // compute pi_total_value from prefilled qty/rate
-    prefilled.pi_total_value = calcPiTotal(prefilled);
     setPoPiForm(prefilled);
     setPoPiModal(plan);
   }
@@ -310,11 +350,25 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
-      setPoPiModal(null); setNewModelModal(false); setPoPiForm(emptyPoPiForm());
-      setSelectedPoPiSupplier(null); setPoPiModels([]);
-      router.push("/po-pi");
+      setNewModelModal(false);
+      if (containerInfo && containerInfo.index + 1 < containerInfo.total) {
+        // more containers to go — carry the current form forward as the next
+        // page's starting point (per-container tweaks happen from there)
+        setContainerInfo({ ...containerInfo, index: containerInfo.index + 1 });
+      } else {
+        setPoPiModal(null); setPoPiForm(emptyPoPiForm());
+        setSelectedPoPiSupplier(null); setPoPiModels([]);
+        setContainerInfo(null);
+        router.push("/po-pi");
+      }
     }
     setPoPiSaving(false);
+  }
+
+  function closePoPiModal() {
+    setPoPiModal(null); setPoPiForm(emptyPoPiForm());
+    setSelectedPoPiSupplier(null); setPoPiModels([]);
+    setContainerInfo(null);
   }
 
   const inrTotal = calcPoTotalInr(poPiForm);
@@ -444,6 +498,23 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               </label>
             </div>
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Unit
+              <div style={{ display: "flex", gap: "6px" }}>
+                {(["nos", "containers"] as const).map((u) => (
+                  <button key={u} type="button" onClick={() => setForm({ ...form, unit: u })}
+                    style={{
+                      flex: 1, padding: "7px 10px", borderRadius: "7px", cursor: "pointer",
+                      fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", textTransform: "capitalize",
+                      border: `1px solid ${form.unit === u ? "#09090b" : "#e4e4e7"}`,
+                      background: form.unit === u ? "#09090b" : "#fafafa",
+                      color: form.unit === u ? "#fff" : "#52525b",
+                    }}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Target Date
               <input type="date" style={inputStyle} value={form.target_date} onChange={(e) => setForm({ ...form, target_date: e.target.value })} />
             </label>
@@ -452,7 +523,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: "60px" }} placeholder="Optional remarks" value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} />
             </label>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
             </div>
           </div>
@@ -502,6 +573,23 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               </label>
             </div>
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+              Unit
+              <div style={{ display: "flex", gap: "6px" }}>
+                {(["nos", "containers"] as const).map((u) => (
+                  <button key={u} type="button" onClick={() => setEditForm({ ...editForm, unit: u })}
+                    style={{
+                      flex: 1, padding: "7px 10px", borderRadius: "7px", cursor: "pointer",
+                      fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", textTransform: "capitalize",
+                      border: `1px solid ${editForm.unit === u ? "#09090b" : "#e4e4e7"}`,
+                      background: editForm.unit === u ? "#09090b" : "#fafafa",
+                      color: editForm.unit === u ? "#fff" : "#52525b",
+                    }}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Target Date
               <input type="date" style={inputStyle} value={editForm.target_date} onChange={(e) => setEditForm({ ...editForm, target_date: e.target.value })} />
             </label>
@@ -523,7 +611,9 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
           onKeyDown={(e) => { if (e.key === "Enter") handleCreatePoPi(); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "580px", maxHeight: "85vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
             <div>
-              <h2 style={{ margin: "0 0 4px", fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>Add PO / PI Row</h2>
+              <h2 style={{ margin: "0 0 4px", fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>
+                {containerInfo ? `Container ${containerInfo.index + 1} of ${containerInfo.total}` : "Add PO / PI Row"}
+              </h2>
               <p style={{ margin: 0, fontSize: "12px", color: "#a1a1aa", fontFamily: "var(--font-sans), sans-serif" }}>
                 From order plan: <strong style={{ color: "#52525b" }}>{poPiModal.supplier_name}</strong>{poPiModal.target_date ? ` — ${poPiModal.target_date}` : ""}
               </p>
@@ -556,8 +646,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
             </div>
 
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setPoPiModal(null); setPoPiForm(emptyPoPiForm()); setSelectedPoPiSupplier(null); setPoPiModels([]); }}>Cancel</button>
-              <button style={btnStyle("primary")} onClick={handleCreatePoPi} disabled={poPiSaving}>{poPiSaving ? "Saving…" : "Create & Go to PO/PI →"}</button>
+              <button style={btnStyle("ghost")} onClick={closePoPiModal}>{containerInfo ? "Finish Later" : "Cancel"}</button>
+              <button style={btnStyle("primary")} onClick={handleCreatePoPi} disabled={poPiSaving}>
+                {poPiSaving ? "Saving…" : containerInfo
+                  ? (containerInfo.index + 1 < containerInfo.total ? "Save & Next →" : "Save & Finish")
+                  : "Create & Go to PO/PI →"}
+              </button>
             </div>
           </div>
         </div>

@@ -198,6 +198,21 @@ export default function AllotmentClient({ initialRows }: { initialRows: Row[] })
               </label>
             </div>
 
+            {(() => {
+              const qty = parseFloat(form.quantity);
+              const minRate = parseFloat(form.min_rate);
+              const maxRate = parseFloat(form.max_rate);
+              if (isNaN(qty) || qty <= 0 || (isNaN(minRate) && isNaN(maxRate))) return null;
+              const minAmt = !isNaN(minRate) ? qty * minRate : null;
+              const maxAmt = !isNaN(maxRate) ? qty * maxRate : null;
+              return (
+                <div style={{ padding: "8px 10px", borderRadius: "7px", background: "#f0f0f0", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#09090b", display: "flex", justifyContent: "space-between" }}>
+                  <span>Min Amount: <strong>{minAmt !== null ? minAmt.toFixed(2) : "—"}</strong></span>
+                  <span>Max Amount: <strong>{maxAmt !== null ? maxAmt.toFixed(2) : "—"}</strong></span>
+                </div>
+              );
+            })()}
+
             {error && <p style={{ margin: 0, fontSize: "12px", color: "#ef4444" }}>{error}</p>}
 
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>

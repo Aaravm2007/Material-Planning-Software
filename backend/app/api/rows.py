@@ -28,7 +28,7 @@ IMPORT_FIELDS = [
     "estimated_eta", "confirmed_eta", "inbond", "home_consumption", "shipment_status",
 ]
 
-BOE_FIELDS = ["boe_no", "dollar_rate_currency", "dollar_rate", "custom_exchange_rate_currency", "custom_exchange_rate", "provisional_boe", "actual_boe"]
+BOE_FIELDS = ["boe_no", "provisional_boe", "actual_boe", "customs_rate"]
 
 TRANSPORT_FIELDS = [
     "transportation_inbound", "transportation_outbound_home", "eway_bill",
@@ -53,7 +53,7 @@ EXPORT_FIELDS = [
     "etd", "port", "shipment_status", "confirmed_shipping_time", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date",
     "insurance", "estimated_eta", "confirmed_eta", "inbond", "home_consumption",
-    "boe_no", "dollar_rate_currency", "dollar_rate", "custom_exchange_rate_currency", "custom_exchange_rate", "provisional_boe", "actual_boe",
+    "boe_no", "provisional_boe", "actual_boe", "customs_rate",
     "eway_bill", "sap_inward_no", "cha_name", "cha_charges", "other_charges",
     "confirmed_destination_charges", "transportation_inbound",
     "transportation_outbound_home", "landing_cost",
@@ -72,7 +72,7 @@ def _detect_stage(row: dict) -> str:
         return "due_date"
     if any([v("sap_inward_no"), v("transportation_inbound"), v("cha_name"), v("eway_bill")]):
         return "transportation"
-    if any([v("boe_no"), v("dollar_rate")]):
+    if any([v("boe_no"), v("customs_rate")]):
         return "boe"
     if any([v("confirmed_eta"), v("bl_no")]):
         return "approved_import"
@@ -104,7 +104,7 @@ def _row_to_dict(row: MaterialRow, boe_sum: float = 0.0, boe_inr_sum: float = 0.
         "modified_at": row.modified_at,
         **{f: getattr(row, f) for f in ALL_FIELDS},
         "actual_boe": row.actual_boe if row.actual_boe else (str(round(boe_sum, 2)) if boe_sum else None),
-        "actual_boe_inr": str(round(boe_inr_sum, 2)) if boe_inr_sum else None,
+        "actual_boe_inr": str(round(boe_inr_sum * (1 + _safe_float(row.customs_rate) / 100), 2)) if boe_inr_sum else None,
         "total_transport": str(round(total_transport, 2)) if total_transport else None,
     }
 
@@ -215,12 +215,9 @@ class PatchRowBody(BaseModel):
     home_consumption: Optional[str] = None
     shipment_status: Optional[str] = None
     boe_no: Optional[str] = None
-    dollar_rate_currency: Optional[str] = None
-    dollar_rate: Optional[str] = None
-    custom_exchange_rate_currency: Optional[str] = None
-    custom_exchange_rate: Optional[str] = None
     provisional_boe: Optional[str] = None
     actual_boe: Optional[str] = None
+    customs_rate: Optional[str] = None
     transportation_inbound: Optional[str] = None
     transportation_outbound_home: Optional[str] = None
     eway_bill: Optional[str] = None

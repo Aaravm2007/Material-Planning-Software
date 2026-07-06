@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
@@ -48,6 +48,7 @@ def _opt_to_dict(opt: ShippingOption) -> dict:
         "port": opt.port,
         "currency": opt.currency,
         "exchange_rate": opt.exchange_rate,
+        "is_selected": bool(opt.is_selected) if opt.is_selected is not None else False,
         "created_at": opt.created_at,
     }
 
@@ -147,6 +148,14 @@ async def select_shipping_option(option_id: int, db: AsyncSession = Depends(get_
     row.shipping_company = opt.shipping_line
     row.estimated_eta = opt.eta
     row.workflow_status = "approved_import"
+
+    # Mark this option as the one selected for the row (and unselect any others
+    # for the same uid), so later stages (e.g. BOE) can look up the original
+    # freight currency/rate for reference.
+    await db.execute(
+        update(ShippingOption).where(ShippingOption.uid == opt.uid).values(is_selected=False)
+    )
+    opt.is_selected = True
 
     await db.commit()
     return {"status": "ok", "uid": opt.uid}

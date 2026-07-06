@@ -50,12 +50,9 @@ class MaterialRow(Base):
 
     # BOE stage
     boe_no = Column(String, nullable=True)
-    dollar_rate_currency = Column(String, nullable=True)
-    dollar_rate = Column(String, nullable=True)
-    custom_exchange_rate_currency = Column(String, nullable=True)
-    custom_exchange_rate = Column(String, nullable=True)
     provisional_boe = Column(String, nullable=True)
     actual_boe = Column(String, nullable=True)
+    customs_rate = Column(String, nullable=True)  # percentage applied to the actual BOE entries total
 
     # Transportation stage
     transportation_inbound = Column(String, nullable=True)
@@ -106,6 +103,7 @@ class ShippingOption(Base):
     port = Column(String, nullable=True)
     currency = Column(String, nullable=True)
     exchange_rate = Column(String, nullable=True)
+    is_selected = Column(Boolean, nullable=True, default=False)
     created_at = Column(String, nullable=True)
 
 

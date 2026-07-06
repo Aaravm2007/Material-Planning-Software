@@ -58,12 +58,9 @@ const SECTIONS = [
     title: "BOE",
     fields: [
       { key: "boe_no",                         label: "BOE No"                },
-      { key: "dollar_rate_currency",           label: "Dollar Rate Currency",  select: ["USD","EUR","CNY","GBP","AED","INR"] },
-      { key: "dollar_rate",                    label: "Dollar Rate"            },
-      { key: "custom_exchange_rate_currency",  label: "Custom Exch. Currency", select: ["USD","EUR","CNY","GBP","AED","INR"] },
-      { key: "custom_exchange_rate",           label: "Custom Exchange Rate"   },
       { key: "provisional_boe",                label: "Provisional BOE"        },
       { key: "actual_boe",                     label: "Actual BOE"             },
+      { key: "customs_rate",                   label: "Customs Rate (%)"       },
     ],
   },
   {
@@ -96,7 +93,7 @@ type FieldDef = { key: string; label: string; date?: boolean; select?: readonly 
 const MONEY_KEYS = new Set([
   "pi_rate", "pi_total_value", "exchange_rate", "po_total_value",
   "estimated_destination_charges", "freight_charges", "insurance",
-  "dollar_rate", "custom_exchange_rate", "provisional_boe",
+  "provisional_boe", "customs_rate",
   "cha_charges", "other_charges", "confirmed_destination_charges",
   "transportation_inbound", "transportation_outbound_home",
   "advance_given", "confirmed_payment_amt", "confirmed_payment_exchange",
@@ -117,7 +114,7 @@ const SELECT_KEYS: Record<string, string[]> = {
   hedged:          ["Y","N"],
   shipment_status: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"],
 };
-const AMOUNT_KEYS = new Set(["po_quantity","po_rate","po_total_value","pi_quantity","pi_rate","pi_total_value","exchange_rate","credit_time","estimated_destination_charges","freight_charges","insurance","dollar_rate","custom_exchange_rate","provisional_boe","actual_boe","transportation_inbound","transportation_outbound_home","cha_charges","other_charges","confirmed_destination_charges","total_transport","landing_cost","confirmed_payment_amt","confirmed_payment_exchange","advance_given"]);
+const AMOUNT_KEYS = new Set(["po_quantity","po_rate","po_total_value","pi_quantity","pi_rate","pi_total_value","exchange_rate","credit_time","estimated_destination_charges","freight_charges","insurance","provisional_boe","actual_boe","customs_rate","transportation_inbound","transportation_outbound_home","cha_charges","other_charges","confirmed_destination_charges","total_transport","landing_cost","confirmed_payment_amt","confirmed_payment_exchange","advance_given"]);
 
 function toColDefs(cols: { key: string; label: string }[]): ColDef[] {
   return cols.map((c) => ({
@@ -131,6 +128,7 @@ function toColDefs(cols: { key: string; label: string }[]): ColDef[] {
 const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
 
 interface BoeEntry { id: number; uid: string; amount: string; currency: string | null; rate: string | null; note: string | null; }
+interface ShippingOptionRef { freight: string | null; currency: string | null; exchange_rate: string | null; is_selected: boolean; }
 
 function entryInrValue(e: { amount: string; currency: string | null; rate: string | null }): number {
   const amount = parseFloat(e.amount) || 0;
@@ -159,6 +157,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
   const [boeEntries, setBoeEntries] = useState<BoeEntry[]>([]);
   const [newBoeEntry, setNewBoeEntry] = useState({ amount: "", currency: "INR", rate: "", note: "" });
   const [entrySaving, setEntrySaving] = useState(false);
+  const [freightRef, setFreightRef] = useState<ShippingOptionRef | null>(null);
 
   // Import state
   const [importing, setImporting] = useState(false);
@@ -236,8 +235,16 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     setEditRow(row);
     setActiveSection(0);
     setNewBoeEntry({ amount: "", currency: "INR", rate: "", note: "" });
-    const res = await apiFetch(`${API}/api/boe-entries/${uid}`);
-    setBoeEntries(res.ok ? await res.json() : []);
+    setFreightRef(null);
+    const [entriesRes, optionsRes] = await Promise.all([
+      apiFetch(`${API}/api/boe-entries/${uid}`),
+      apiFetch(`${API}/api/shipping-options/${uid}`),
+    ]);
+    setBoeEntries(entriesRes.ok ? await entriesRes.json() : []);
+    if (optionsRes.ok) {
+      const options: ShippingOptionRef[] = await optionsRes.json();
+      setFreightRef(options.find((o) => o.is_selected) ?? null);
+    }
   }
 
   function syncBoeSums(uid: string, entryList: BoeEntry[]) {
@@ -245,9 +252,10 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     const inrSum = entryList.reduce((acc, e) => acc + entryInrValue(e), 0);
     setRows((r) => r.map((row) => {
       if (row.uid !== uid) return row;
+      const customsRate = parseFloat((row.customs_rate as string) ?? "0") || 0;
       const updated: Row = { ...row };
       updated.actual_boe = sum > 0 ? String(sum.toFixed(2)) : "0";
-      updated.actual_boe_inr = inrSum > 0 ? String(inrSum.toFixed(2)) : "0";
+      updated.actual_boe_inr = inrSum > 0 ? String((inrSum * (1 + customsRate / 100)).toFixed(2)) : "0";
       return updated;
     }));
   }
@@ -318,11 +326,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
       );
     }
     if (MONEY_KEYS.has(f.key)) {
-      const currency =
-        f.key === "pi_rate" || f.key === "pi_total_value" ? (editForm.currency ?? "INR") :
-        f.key === "dollar_rate" ? (editForm.dollar_rate_currency ?? "INR") :
-        f.key === "custom_exchange_rate" ? (editForm.custom_exchange_rate_currency ?? "INR") :
-        "INR";
+      const currency = f.key === "pi_rate" || f.key === "pi_total_value" ? (editForm.currency ?? "INR") : "INR";
       return (
         <AmountInput style={inputStyle} placeholder={f.label} value={editForm[f.key] ?? ""}
           currency={currency} onChange={(raw) => setEditForm((fm) => ({ ...fm, [f.key]: raw }))} />
@@ -446,8 +450,43 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
                 ))}
               </div>
 
-              {currentSection.title === "BOE" && (
+              {currentSection.title === "BOE" && editRow && (
                 <div style={{ borderTop: "1px solid #e4e4e7", marginTop: "16px", paddingTop: "14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <div style={{ border: "1px solid #e4e4e7", borderRadius: "8px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px", background: "#fafafa" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em" }}>Reference</span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        PI Value ({editRow.currency ?? "—"})
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={editRow.pi_total_value ?? "—"} readOnly />
+                      </label>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        Currency
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={editRow.currency ?? "—"} readOnly />
+                      </label>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        Rate
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={editRow.exchange_rate ?? "—"} readOnly />
+                      </label>
+                    </div>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      Insurance (INR)
+                      <input style={{ ...inputStyle, background: "#f0f0f0" }} value={editRow.insurance ?? "—"} readOnly />
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        Freight ({freightRef?.currency ?? "—"})
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={freightRef?.freight ?? "—"} readOnly />
+                      </label>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        Currency
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={freightRef?.currency ?? "—"} readOnly />
+                      </label>
+                      <label style={{ fontSize: "11px", fontWeight: 600, color: "#71717a", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        Rate
+                        <input style={{ ...inputStyle, background: "#f0f0f0" }} value={freightRef?.exchange_rate ?? "—"} readOnly />
+                      </label>
+                    </div>
+                  </div>
                   <span style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif" }}>Actual BOE Entries</span>
                   <table style={{ borderCollapse: "collapse", width: "100%" }}>
                     <thead>
@@ -496,9 +535,11 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
                       </tr>
                     </tbody>
                   </table>
-                  <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b" }}>
-                    <span>Actual BOE (sum): {boeEntries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0).toFixed(2)}</span>
-                    <span>Actual BOE (INR): {boeEntries.reduce((acc, e) => acc + entryInrValue(e), 0).toFixed(2)}</span>
+                  <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b", flexWrap: "wrap" }}>
+                    <span>Sum: {boeEntries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0).toFixed(2)}</span>
+                    <span style={{ fontWeight: 600, color: "#09090b" }}>
+                      Actual BOE: {(boeEntries.reduce((acc, e) => acc + entryInrValue(e), 0) * (1 + (parseFloat(editForm.customs_rate ?? "0") || 0) / 100)).toFixed(2)}
+                    </span>
                   </div>
                 </div>
               )}

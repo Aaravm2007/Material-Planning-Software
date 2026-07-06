@@ -42,10 +42,7 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "home_consumption",              label: "Home Consumption (Y/N)"   },
   // BOE
   { key: "boe_no",                        label: "BOE No"                   },
-  { key: "dollar_rate_currency",          label: "DR Currency"              },
-  { key: "dollar_rate",                   label: "Dollar Rate"              },
-  { key: "custom_exchange_rate_currency", label: "CER Currency"             },
-  { key: "custom_exchange_rate",          label: "Custom Exchange Rate"     },
+  { key: "customs_rate",                  label: "Customs Rate (%)"         },
   { key: "provisional_boe",              label: "Provisional BOE"          },
   { key: "actual_boe",                    label: "Actual BOE"               },
   { key: "actual_boe_inr",                label: "Actual BOE (INR)"         },
@@ -72,8 +69,7 @@ const MONO_KEYS = new Set([
   "srno", "po_quantity", "po_rate", "po_total_value",
   "pi_quantity", "pi_rate", "pi_total_value", "exchange_rate", "credit_time",
   "estimated_destination_charges", "freight_charges",
-  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
-  "dollar_rate_currency", "custom_exchange_rate_currency",
+  "customs_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
   "confirmed_shipping_time", "eway_bill",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
@@ -85,7 +81,7 @@ const YN_KEYS = new Set(["inbond", "home_consumption", "hedged"]);
 const MONEY_DISPLAY_KEYS = new Set([
   "po_rate", "po_total_value", "pi_rate", "pi_total_value", "exchange_rate",
   "estimated_destination_charges", "freight_charges", "insurance",
-  "dollar_rate", "custom_exchange_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
+  "customs_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
   "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",
@@ -103,8 +99,6 @@ function fmtAmount(val: string | null, currency?: string | null): string | null 
 const CCY_FOR_KEY: Record<string, string> = {
   pi_rate: "currency",
   pi_total_value: "currency",
-  dollar_rate: "dollar_rate_currency",
-  custom_exchange_rate: "custom_exchange_rate_currency",
 };
 
 const STAGE_LABELS: Record<string, string> = {

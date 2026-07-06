@@ -10,7 +10,7 @@ import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
 
-const PENDING_COL_DEFS: ColDef[] = [
+export const PENDING_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",    label: "Supplier",      type: "text" },
   { key: "supplier_code",    label: "Supp. Code",    type: "text" },
   { key: "pi_number",        label: "PI Number",     type: "text" },
@@ -94,6 +94,10 @@ const TD: React.CSSProperties = {
   color: "#09090b", whiteSpace: "nowrap",
 };
 
+function renderPendingCell(col: ColDef, row: Row) {
+  return <td key={col.key} style={TD}>{(row[col.key] as string) ?? "—"}</td>;
+}
+
 export default function ImportPlanningClient({
   initialPending, initialApproved,
 }: { initialPending: Row[]; initialApproved: Row[] }) {
@@ -102,6 +106,8 @@ export default function ImportPlanningClient({
   const [pending, setPending] = useState<Row[]>(dedup(initialPending));
   const [approved, setApproved] = useState<Row[]>(dedup(initialApproved));
 
+  const pendingColumnOrder = useColumnOrder("import_planning_pending");
+  const PENDING_COL_DEFS = useMemo(() => applyColumnOrder(PENDING_COL_DEFS_BASE, pendingColumnOrder), [pendingColumnOrder]);
   const columnOrder = useColumnOrder("import_planning");
   const APPROVED_COL_DEFS = useMemo(() => applyColumnOrder(APPROVED_COL_DEFS_BASE, columnOrder), [columnOrder]);
 
@@ -386,7 +392,7 @@ export default function ImportPlanningClient({
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {[{ key: "supplier_name", label: "Supplier" }, { key: "supplier_code", label: "Supplier Code" }, { key: "pi_number", label: "PI Number" }, { key: "rocket_item_code", label: "Item Code" }].map((c) => {
+                  {PENDING_COL_DEFS.map((c) => {
                     const isSorted = pendingFilter.sort?.key === c.key;
                     return (
                       <th key={c.key} style={{ ...TH, cursor: "pointer", userSelect: "none" }} onClick={() => pendingFilter.setSort(c.key)}>
@@ -410,10 +416,7 @@ export default function ImportPlanningClient({
                     onDoubleClick={() => openDialog(row)}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
-                    <td style={TD}>{row.supplier_name ?? "—"}</td>
-                    <td style={TD}>{row.supplier_code ?? "—"}</td>
-                    <td style={TD}>{row.pi_number ?? "—"}</td>
-                    <td style={TD}>{row.rocket_item_code ?? "—"}</td>
+                    {PENDING_COL_DEFS.map((c) => renderPendingCell(c, row))}
                     <td style={{ ...TD, textAlign: "right" }}>
                       <button style={btnStyle("ghost")} onClick={(e) => { e.stopPropagation(); handleBackToPoPi(row.uid as string); }}>← PO/PI</button>
                     </td>

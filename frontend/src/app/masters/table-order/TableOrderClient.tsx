@@ -8,7 +8,7 @@ import { PO_PI_COLS_BASE } from "@/app/po-pi/PoPiClient";
 import { BOE_FILTER_DEFS_BASE } from "@/app/boe/BoeClient";
 import { TRANSPORT_COL_DEFS_BASE } from "@/app/transportation/TransportationClient";
 import { DUEDATE_COL_DEFS_BASE } from "@/app/due-date/DueDateClient";
-import { APPROVED_COL_DEFS_BASE } from "@/app/import-planning/ImportPlanningClient";
+import { PENDING_COL_DEFS_BASE, APPROVED_COL_DEFS_BASE } from "@/app/import-planning/ImportPlanningClient";
 import { ORDER_PLANNING_COLS_BASE } from "@/app/order-planning/OrderPlanningClient";
 import { COLUMNS as MASTER_COLUMNS } from "@/components/DataTable";
 
@@ -19,7 +19,8 @@ const TABLE_DEFS: TableDef[] = [
   { id: "master_table",    label: "Master Table",     cols: MASTER_COLUMNS },
   { id: "order_planning",  label: "Order Planning",   cols: ORDER_PLANNING_COLS_BASE },
   { id: "po_pi",           label: "PO / PI",          cols: PO_PI_COLS_BASE },
-  { id: "import_planning", label: "Freight Planning", cols: APPROVED_COL_DEFS_BASE },
+  { id: "import_planning_pending", label: "Freight Planning (Pending)",  cols: PENDING_COL_DEFS_BASE },
+  { id: "import_planning",         label: "Freight Planning (Approved)", cols: APPROVED_COL_DEFS_BASE },
   { id: "boe",             label: "BOE",              cols: BOE_FILTER_DEFS_BASE },
   { id: "transportation",  label: "Transportation",   cols: TRANSPORT_COL_DEFS_BASE },
   { id: "due_date",        label: "Due Date",         cols: DUEDATE_COL_DEFS_BASE },

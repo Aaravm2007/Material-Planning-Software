@@ -95,6 +95,9 @@ async def _run_migrations():
         "ALTER TABLE order_plans ADD COLUMN nos_per_container VARCHAR",
         "ALTER TABLE material_rows ADD COLUMN customs_rate VARCHAR",
         "ALTER TABLE shipping_options ADD COLUMN is_selected BOOLEAN DEFAULT 0",
+        "ALTER TABLE material_rows ADD COLUMN bond_parent_uid VARCHAR(36)",
+        "ALTER TABLE material_rows ADD COLUMN exbond_boe_no VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN exbond_quantity VARCHAR",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

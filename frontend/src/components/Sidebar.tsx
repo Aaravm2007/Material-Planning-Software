@@ -12,6 +12,7 @@ const NAV = [
   { label: "PO / PI",         href: "/po-pi"           },
   { label: "Freight Planning", href: "/import-planning" },
   { label: "BOE",             href: "/boe"             },
+  { label: "Bond",            href: "/bond"            },
   { label: "Transportation",  href: "/transportation"  },
   { label: "Due Date",        href: "/due-date"        },
 ];

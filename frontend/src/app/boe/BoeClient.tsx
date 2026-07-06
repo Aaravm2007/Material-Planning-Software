@@ -42,6 +42,7 @@ interface Row {
   provisional_boe: string | null;
   actual_boe: string | null; actual_boe_inr: string | null;
   customs_rate: string | null;
+  inbond: string | null;
   fields_entered: boolean | null;
   [key: string]: string | null | number | boolean;
 }
@@ -181,12 +182,14 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     setSaving(false);
   }
 
-  async function handleAdvance(uid: string) {
-    await apiFetch(`${API}/api/rows/${uid}`, {
+  async function handleAdvance(row: Row) {
+    // Inbond rows go through the Bond tab (ex-bond splitting) before Transportation
+    const nextStage = row.inbond === "Y" ? "bond" : "transportation";
+    await apiFetch(`${API}/api/rows/${row.uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workflow_status: "transportation" }),
+      body: JSON.stringify({ workflow_status: nextStage }),
     });
-    setRows((r) => r.filter((row) => row.uid !== uid));
+    setRows((r) => r.filter((r2) => r2.uid !== row.uid));
   }
 
   async function handleBack(uid: string) {
@@ -258,7 +261,9 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
                     <button style={btnStyle("action")} onClick={() => openEditModal(row)}>
                       {row.fields_entered ? "Edit Fields" : "Enter Fields"}
                     </button>
-                    <button style={{ ...btnStyle("primary"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleAdvance(row.uid as string); }}>→ Transport</button>
+                    <button style={{ ...btnStyle("primary"), ...(!row.fields_entered ? { opacity: 0.4, cursor: "not-allowed" } : {}) }} onClick={() => { if (!row.fields_entered) return; handleAdvance(row); }}>
+                      {row.inbond === "Y" ? "→ Bond" : "→ Transport"}
+                    </button>
                   </div>
                 </td>
               </tr>

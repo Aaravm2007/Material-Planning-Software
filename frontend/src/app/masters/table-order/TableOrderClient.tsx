@@ -10,6 +10,7 @@ import { TRANSPORT_COL_DEFS_BASE } from "@/app/transportation/TransportationClie
 import { DUEDATE_COL_DEFS_BASE } from "@/app/due-date/DueDateClient";
 import { PENDING_COL_DEFS_BASE, APPROVED_COL_DEFS_BASE } from "@/app/import-planning/ImportPlanningClient";
 import { ORDER_PLANNING_COLS_BASE } from "@/app/order-planning/OrderPlanningClient";
+import { BOND_COL_DEFS_BASE } from "@/app/bond/BondClient";
 import { COLUMNS as MASTER_COLUMNS } from "@/components/DataTable";
 
 interface ColInfo { key: string; label: string }
@@ -22,6 +23,7 @@ const TABLE_DEFS: TableDef[] = [
   { id: "import_planning_pending", label: "Freight Planning (Pending)",  cols: PENDING_COL_DEFS_BASE },
   { id: "import_planning",         label: "Freight Planning (Approved)", cols: APPROVED_COL_DEFS_BASE },
   { id: "boe",             label: "BOE",              cols: BOE_FILTER_DEFS_BASE },
+  { id: "bond",            label: "Bond",             cols: BOND_COL_DEFS_BASE },
   { id: "transportation",  label: "Transportation",   cols: TRANSPORT_COL_DEFS_BASE },
   { id: "due_date",        label: "Due Date",         cols: DUEDATE_COL_DEFS_BASE },
 ];

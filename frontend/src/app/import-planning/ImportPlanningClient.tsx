@@ -117,6 +117,7 @@ export default function ImportPlanningClient({
   // Shipping options dialog state
   const [dialogRow, setDialogRow] = useState<Row | null>(null);
   const [options, setOptions] = useState<ShippingOption[]>([]);
+  const [bulkApproving, setBulkApproving] = useState(false);
   const [newOpt, setNewOpt] = useState({ name: "", shipping_line: "", freight: "", etd: "", eta: "", port: "", currency: "", exchange_rate: "" });
   const [editOptId, setEditOptId] = useState<number | null>(null);
   const [editOptForm, setEditOptForm] = useState<Record<string, string>>({});
@@ -278,6 +279,26 @@ export default function ImportPlanningClient({
     }
   }
 
+  async function handleBulkApprove() {
+    setBulkApproving(true);
+    const results = await Promise.all(pending.map(async (row) => {
+      const res = await apiFetch(`${API}/api/shipping-options/${row.uid}`);
+      const opts: ShippingOption[] = res.ok ? await res.json() : [];
+      return { row, opts };
+    }));
+    const eligible = results.filter((r) => r.opts.length === 1);
+    const skipped = results.length - eligible.length;
+    await Promise.all(eligible.map(({ opts }) =>
+      apiFetch(`${API}/api/shipping-options/${opts[0].id}/select`, { method: "POST" })
+    ));
+    await fetchRows();
+    setBulkApproving(false);
+    alert(
+      `Approved ${eligible.length} row${eligible.length !== 1 ? "s" : ""} with exactly one freight option.` +
+      (skipped > 0 ? ` ${skipped} row${skipped !== 1 ? "s" : ""} skipped (need manual selection).` : "")
+    );
+  }
+
   async function handleWarehousing() {
     if (!warehousingRow || !warehousingChoice) return;
     const patch = warehousingChoice === "inbond"
@@ -385,8 +406,16 @@ export default function ImportPlanningClient({
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 2fr", gap: "12px", overflow: "hidden" }}>
         {/* Pending */}
         <div style={{ display: "flex", flexDirection: "column", minHeight: 0, border: "1px solid #e4e4e7", borderRadius: "12px", overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e4e4e7", background: "#fafafa", fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-            ⏳ Pending ({pendingFilter.filteredCount < pending.length ? `${pendingFilter.filteredCount} / ${pending.length}` : pending.length})
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e4e4e7", background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              ⏳ Pending ({pendingFilter.filteredCount < pending.length ? `${pendingFilter.filteredCount} / ${pending.length}` : pending.length})
+            </span>
+            {role === "expert" && pending.length > 0 && (
+              <button style={btnStyle("expert")} onClick={handleBulkApprove} disabled={bulkApproving}
+                title="Selects and approves every pending row that has exactly one freight option">
+                {bulkApproving ? "Approving…" : "Select & Approve All"}
+              </button>
+            )}
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>

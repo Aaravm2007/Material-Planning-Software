@@ -30,6 +30,8 @@ IMPORT_FIELDS = [
 
 BOE_FIELDS = ["boe_no", "provisional_boe", "actual_boe", "customs_rate"]
 
+BOND_FIELDS = ["bond_parent_uid", "exbond_boe_no", "exbond_quantity"]
+
 TRANSPORT_FIELDS = [
     "transportation_inbound", "transportation_outbound_home", "eway_bill",
     "sap_inward_no", "cha_name", "cha_charges", "other_charges",
@@ -41,7 +43,7 @@ DUE_DATE_FIELDS = [
     "confirmed_payment_amt", "confirmed_payment_exchange", "advance_given",
 ]
 
-ALL_FIELDS = PO_PI_FIELDS + IMPORT_FIELDS + BOE_FIELDS + TRANSPORT_FIELDS + DUE_DATE_FIELDS
+ALL_FIELDS = PO_PI_FIELDS + IMPORT_FIELDS + BOE_FIELDS + BOND_FIELDS + TRANSPORT_FIELDS + DUE_DATE_FIELDS
 
 # Ordered field list for CSV export/import (matches stage-table display order)
 EXPORT_FIELDS = [
@@ -54,6 +56,7 @@ EXPORT_FIELDS = [
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date",
     "insurance", "estimated_eta", "confirmed_eta", "inbond", "home_consumption",
     "boe_no", "provisional_boe", "actual_boe", "customs_rate",
+    "bond_parent_uid", "exbond_boe_no", "exbond_quantity",
     "eway_bill", "sap_inward_no", "cha_name", "cha_charges", "other_charges",
     "confirmed_destination_charges", "transportation_inbound",
     "transportation_outbound_home", "landing_cost",
@@ -150,10 +153,41 @@ async def get_rows_by_stage(stage: str, db: AsyncSession = Depends(get_db)):
     rows = result.scalars().all()
     uids = [r.uid for r in rows if r.uid]
     boe_sums, boe_inr_sums = await _get_boe_sums(db, uids)
-    return [_row_to_dict(r, boe_sums.get(r.uid, 0.0), boe_inr_sums.get(r.uid, 0.0)) for r in rows]
+    dicts = [_row_to_dict(r, boe_sums.get(r.uid, 0.0), boe_inr_sums.get(r.uid, 0.0)) for r in rows]
+
+    if stage == "bond" and uids:
+        # aggregate how much of each bond row's quantity has already been ex-bonded
+        exbond_res = await db.execute(
+            select(MaterialRow.bond_parent_uid, MaterialRow.exbond_quantity)
+            .where(MaterialRow.bond_parent_uid.in_(uids))
+        )
+        exbond_used: dict[str, float] = {}
+        for parent_uid, qty in exbond_res.all():
+            exbond_used[parent_uid] = exbond_used.get(parent_uid, 0.0) + _safe_float(qty)
+        for d in dicts:
+            d["exbond_used"] = str(round(exbond_used[d["uid"]], 4)) if d["uid"] in exbond_used else None
+
+    return dicts
+
+
+@router.get("/{uid}/exbonds")
+async def get_exbond_children(uid: str, db: AsyncSession = Depends(get_db)):
+    """All exbond splits created from this bond row, for history/traceability."""
+    result = await db.execute(
+        select(MaterialRow).where(MaterialRow.bond_parent_uid == uid).order_by(MaterialRow.id)
+    )
+    children = result.scalars().all()
+    return [
+        {
+            "id": c.id, "uid": c.uid, "workflow_status": c.workflow_status,
+            "exbond_boe_no": c.exbond_boe_no, "exbond_quantity": c.exbond_quantity,
+        }
+        for c in children
+    ]
 
 
 class CreateRowBody(BaseModel):
+    workflow_status: Optional[str] = None
     srno: Optional[str] = None
     date_of_po: Optional[str] = None
     supplier_name: Optional[str] = None
@@ -175,6 +209,11 @@ class CreateRowBody(BaseModel):
     currency: Optional[str] = None
     exchange_rate: Optional[str] = None
     order_plan_id: Optional[int] = None
+    boe_no: Optional[str] = None
+    actual_boe: Optional[str] = None
+    bond_parent_uid: Optional[str] = None
+    exbond_boe_no: Optional[str] = None
+    exbond_quantity: Optional[str] = None
 
 
 class PatchRowBody(BaseModel):
@@ -218,6 +257,9 @@ class PatchRowBody(BaseModel):
     provisional_boe: Optional[str] = None
     actual_boe: Optional[str] = None
     customs_rate: Optional[str] = None
+    bond_parent_uid: Optional[str] = None
+    exbond_boe_no: Optional[str] = None
+    exbond_quantity: Optional[str] = None
     transportation_inbound: Optional[str] = None
     transportation_outbound_home: Optional[str] = None
     eway_bill: Optional[str] = None
@@ -237,10 +279,12 @@ class PatchRowBody(BaseModel):
 
 @router.post("/", status_code=201)
 async def create_row(body: CreateRowBody, db: AsyncSession = Depends(get_db)):
+    data = body.model_dump(exclude_none=True)
+    workflow_status = data.pop("workflow_status", None) or "po_pi"
     row = MaterialRow(
         uid=str(uuid.uuid4()),
-        workflow_status="po_pi",
-        **body.model_dump(exclude_none=True),
+        workflow_status=workflow_status,
+        **data,
     )
     db.add(row)
     await db.commit()
@@ -281,6 +325,7 @@ STAGE_FIELDS: dict[str, list[str]] = {
     "po_pi": PO_PI_FIELDS,
     "pending_import": IMPORT_FIELDS,
     "boe": BOE_FIELDS,
+    "bond": BOND_FIELDS,
     "transportation": TRANSPORT_FIELDS,
     "due_date": DUE_DATE_FIELDS,
 }

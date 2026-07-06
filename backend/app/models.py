@@ -54,6 +54,12 @@ class MaterialRow(Base):
     actual_boe = Column(String, nullable=True)
     customs_rate = Column(String, nullable=True)  # percentage applied to the actual BOE entries total
 
+    # Bond stage (inbond rows only) — a bond row can be split into several
+    # exbond rows; children reference their parent via bond_parent_uid.
+    bond_parent_uid = Column(String(36), nullable=True, index=True)
+    exbond_boe_no = Column(String, nullable=True)
+    exbond_quantity = Column(String, nullable=True)
+
     # Transportation stage
     transportation_inbound = Column(String, nullable=True)
     transportation_outbound_home = Column(String, nullable=True)

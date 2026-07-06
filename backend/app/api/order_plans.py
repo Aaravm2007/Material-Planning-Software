@@ -64,17 +64,18 @@ async def get_order_plans(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(OrderPlan).order_by(OrderPlan.created_at.desc()))
     plans = result.scalars().all()
 
-    # aggregate ordered quantity per order_plan_id
+    # aggregate ordered quantity per order_plan_id (pi_quantity, since the
+    # PO/PI creation flow only ever collects pi_quantity, not po_quantity)
     plan_ids = [p.id for p in plans]
     ordered: dict[int, float] = {}
     linked: set[int] = set()
     if plan_ids:
         rows_res = await db.execute(
-            select(MaterialRow.order_plan_id, MaterialRow.po_quantity)
+            select(MaterialRow.order_plan_id, MaterialRow.pi_quantity)
             .where(MaterialRow.order_plan_id.in_(plan_ids))
         )
-        for plan_id, po_qty in rows_res.all():
-            ordered[plan_id] = ordered.get(plan_id, 0.0) + _safe_float(po_qty)
+        for plan_id, pi_qty in rows_res.all():
+            ordered[plan_id] = ordered.get(plan_id, 0.0) + _safe_float(pi_qty)
             linked.add(plan_id)
 
     return [_plan_dict(p, ordered.get(p.id, 0.0), p.id in linked) for p in plans]
@@ -133,7 +134,7 @@ async def update_order_plan(
     await db.refresh(plan)
 
     rows_res = await db.execute(
-        select(MaterialRow.po_quantity).where(MaterialRow.order_plan_id == plan_id)
+        select(MaterialRow.pi_quantity).where(MaterialRow.order_plan_id == plan_id)
     )
     qtys = [r[0] for r in rows_res.all()]
     ordered_qty = sum(_safe_float(q) for q in qtys)

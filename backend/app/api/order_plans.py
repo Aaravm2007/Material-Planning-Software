@@ -30,6 +30,8 @@ def _plan_dict(p: OrderPlan, ordered_qty: float = 0.0, has_orders: bool = False)
         "supplier_model_number": p.supplier_model_number,
         "quantity": p.quantity,
         "unit": p.unit or "nos",
+        "container_count": p.container_count,
+        "nos_per_container": p.nos_per_container,
         "rate": p.rate,
         "target_date": p.target_date,
         "remark": p.remark,
@@ -44,6 +46,8 @@ class CreateOrderPlanBody(BaseModel):
     supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
     unit: Optional[str] = None
+    container_count: Optional[str] = None
+    nos_per_container: Optional[str] = None
     rate: Optional[str] = None
     target_date: Optional[str] = None
     remark: Optional[str] = None
@@ -54,6 +58,8 @@ class UpdateOrderPlanBody(BaseModel):
     supplier_model_number: Optional[str] = None
     quantity: Optional[str] = None
     unit: Optional[str] = None
+    container_count: Optional[str] = None
+    nos_per_container: Optional[str] = None
     rate: Optional[str] = None
     target_date: Optional[str] = None
     remark: Optional[str] = None
@@ -105,6 +111,8 @@ async def create_order_plan(body: CreateOrderPlanBody, db: AsyncSession = Depend
         supplier_model_number=body.supplier_model_number,
         quantity=body.quantity,
         unit=body.unit or "nos",
+        container_count=body.container_count,
+        nos_per_container=body.nos_per_container,
         rate=body.rate,
         target_date=body.target_date,
         remark=body.remark,

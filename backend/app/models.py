@@ -122,6 +122,8 @@ class OrderPlan(Base):
     created_at = Column(String, nullable=True)
     supplier_model_number = Column(String, nullable=True)
     unit = Column(String, nullable=True)  # "nos" | "containers"
+    container_count = Column(String, nullable=True)     # only meaningful when unit="containers"
+    nos_per_container = Column(String, nullable=True)   # only meaningful when unit="containers"
     # legacy column kept for existing rows
     requirement_date = Column(String, nullable=True)
 

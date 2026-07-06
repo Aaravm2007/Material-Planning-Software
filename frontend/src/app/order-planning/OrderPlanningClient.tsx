@@ -16,6 +16,8 @@ interface Plan {
   supplier_model_number: string | null;
   quantity: string | null;
   unit: string | null;
+  container_count: string | null;
+  nos_per_container: string | null;
   rate: string | null;
   target_date: string | null;
   remark: string | null;
@@ -133,6 +135,17 @@ function fmtDate(s: string | null) {
   try { return new Date(s).toLocaleDateString(); } catch { return s; }
 }
 
+// Planned Qty = container_count × nos_per_container when unit=containers,
+// otherwise just the entered quantity.
+function computePlannedQty(f: { unit: string; quantity: string; container_count: string; nos_per_container: string }): string {
+  if (f.unit === "containers") {
+    const cc = parseFloat(f.container_count) || 0;
+    const npc = parseFloat(f.nos_per_container) || 0;
+    return cc && npc ? String(cc * npc) : "";
+  }
+  return f.quantity.trim();
+}
+
 export default function OrderPlanningClient({ initialPlans }: { initialPlans: Plan[] }) {
   const router = useRouter();
   const { role } = useRole();
@@ -143,12 +156,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const COLS = useMemo(() => applyColumnOrder(ORDER_PLANNING_COLS_BASE, columnOrder), [columnOrder]);
 
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
+  const [form, setForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", container_count: "", nos_per_container: "", rate: "", target_date: "", remark: "" });
   const [createModels, setCreateModels] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [editModal, setEditModal] = useState<Plan | null>(null);
-  const [editForm, setEditForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
+  const [editForm, setEditForm] = useState({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", container_count: "", nos_per_container: "", rate: "", target_date: "", remark: "" });
   const [editModels, setEditModels] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -196,7 +209,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     setSaving(true);
     const body: Record<string, string> = { supplier_name: form.supplier_name, unit: form.unit };
     if (form.supplier_model_number.trim()) body.supplier_model_number = form.supplier_model_number.trim();
-    if (form.quantity.trim()) body.quantity = form.quantity.trim();
+    if (form.unit === "containers") {
+      if (form.container_count.trim()) body.container_count = form.container_count.trim();
+      if (form.nos_per_container.trim()) body.nos_per_container = form.nos_per_container.trim();
+    }
+    const qty = computePlannedQty(form);
+    if (qty) body.quantity = qty;
     if (form.rate.trim()) body.rate = form.rate.trim();
     if (form.target_date) body.target_date = form.target_date;
     if (form.remark.trim()) body.remark = form.remark.trim();
@@ -207,7 +225,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       const created = await res.json();
       setPlans((p) => [created, ...p]);
       setShowModal(false);
-      setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" });
+      setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", container_count: "", nos_per_container: "", rate: "", target_date: "", remark: "" });
       setCreateModels([]);
     }
     setSaving(false);
@@ -224,6 +242,8 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       supplier_model_number: plan.supplier_model_number ?? "",
       quantity: plan.quantity ?? "",
       unit: plan.unit === "containers" ? "containers" : "nos",
+      container_count: plan.container_count ?? "",
+      nos_per_container: plan.nos_per_container ?? "",
       rate: plan.rate ?? "",
       target_date: plan.target_date ?? "",
       remark: plan.remark ?? "",
@@ -245,7 +265,11 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     setEditSaving(true);
     const body: Record<string, string> = { supplier_name: editForm.supplier_name, unit: editForm.unit };
     body.supplier_model_number = editForm.supplier_model_number.trim();
-    body.quantity = editForm.quantity.trim();
+    if (editForm.unit === "containers") {
+      body.container_count = editForm.container_count.trim();
+      body.nos_per_container = editForm.nos_per_container.trim();
+    }
+    body.quantity = computePlannedQty(editForm);
     body.rate = editForm.rate.trim();
     body.target_date = editForm.target_date;
     body.remark = editForm.remark.trim();
@@ -263,9 +287,13 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   function basePrefilledForm(plan: Plan): PoPiForm {
     const prefilled = emptyPoPiForm();
     prefilled.supplier_name = plan.supplier_name;
-    // Quantity means "number of containers" (not a per-row quantity) when
-    // unit=containers, so only carry it into pi_quantity for the "nos" case.
-    if (plan.unit !== "containers" && plan.quantity) prefilled.pi_quantity = plan.quantity;
+    // Each container's own quantity is nos_per_container; for "nos" plans the
+    // whole planned quantity carries over as-is.
+    if (plan.unit === "containers") {
+      if (plan.nos_per_container) prefilled.pi_quantity = plan.nos_per_container;
+    } else if (plan.quantity) {
+      prefilled.pi_quantity = plan.quantity;
+    }
     if (plan.rate) prefilled.pi_rate = plan.rate;
     prefilled.pi_total_value = calcPiTotal(prefilled);
     return prefilled;
@@ -280,7 +308,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
 
   async function openPoPiModal(plan: Plan) {
     if (plan.unit === "containers") {
-      const total = parseInt(plan.quantity || "0", 10) || 0;
+      const total = parseInt(plan.container_count || "0", 10) || 0;
       const res = await apiFetch(`${API}/api/order-plans/${plan.id}/rows`);
       const existingRows: Record<string, string | null>[] = res.ok ? await res.json() : [];
       if (total > 0 && existingRows.length >= total) {
@@ -487,16 +515,6 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 onChange={(e) => setForm({ ...form, supplier_model_number: e.target.value })} />
               <datalist id="create-model-list">{createModels.map((m) => <option key={m} value={m} />)}</datalist>
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
-                Quantity
-                <input type="text" style={inputStyle} placeholder="e.g. 100" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-              </label>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
-                Rate
-                <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
-              </label>
-            </div>
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Unit
               <div style={{ display: "flex", gap: "6px" }}>
@@ -514,6 +532,38 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 ))}
               </div>
             </label>
+            {form.unit === "containers" ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    No. of Containers
+                    <input type="text" style={inputStyle} placeholder="e.g. 20" value={form.container_count} onChange={(e) => setForm({ ...form, container_count: e.target.value })} />
+                  </label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    Nos per Container
+                    <input type="text" style={inputStyle} placeholder="e.g. 100" value={form.nos_per_container} onChange={(e) => setForm({ ...form, nos_per_container: e.target.value })} />
+                  </label>
+                </div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Rate
+                  <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+                </label>
+                <p style={{ margin: 0, fontSize: "12px", color: "#71717a", fontFamily: "var(--font-mono), monospace" }}>
+                  Planned Qty: {computePlannedQty(form) || "—"}
+                </p>
+              </>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Quantity
+                  <input type="text" style={inputStyle} placeholder="e.g. 100" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                </label>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Rate
+                  <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+                </label>
+              </div>
+            )}
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Target Date
               <input type="date" style={inputStyle} value={form.target_date} onChange={(e) => setForm({ ...form, target_date: e.target.value })} />
@@ -523,7 +573,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: "60px" }} placeholder="Optional remarks" value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} />
             </label>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm({ supplier_name: "", supplier_model_number: "", quantity: "", unit: "nos", container_count: "", nos_per_container: "", rate: "", target_date: "", remark: "" }); setCreateModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
             </div>
           </div>
@@ -562,16 +612,6 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 onChange={(e) => setEditForm({ ...editForm, supplier_model_number: e.target.value })} />
               <datalist id="edit-model-list">{editModels.map((m) => <option key={m} value={m} />)}</datalist>
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
-                Quantity
-                <input type="text" style={inputStyle} placeholder="e.g. 100" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })} />
-              </label>
-              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
-                Rate
-                <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={editForm.rate} onChange={(e) => setEditForm({ ...editForm, rate: e.target.value })} />
-              </label>
-            </div>
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Unit
               <div style={{ display: "flex", gap: "6px" }}>
@@ -589,6 +629,38 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                 ))}
               </div>
             </label>
+            {editForm.unit === "containers" ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    No. of Containers
+                    <input type="text" style={inputStyle} placeholder="e.g. 20" value={editForm.container_count} onChange={(e) => setEditForm({ ...editForm, container_count: e.target.value })} />
+                  </label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    Nos per Container
+                    <input type="text" style={inputStyle} placeholder="e.g. 100" value={editForm.nos_per_container} onChange={(e) => setEditForm({ ...editForm, nos_per_container: e.target.value })} />
+                  </label>
+                </div>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Rate
+                  <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={editForm.rate} onChange={(e) => setEditForm({ ...editForm, rate: e.target.value })} />
+                </label>
+                <p style={{ margin: 0, fontSize: "12px", color: "#71717a", fontFamily: "var(--font-mono), monospace" }}>
+                  Planned Qty: {computePlannedQty(editForm) || "—"}
+                </p>
+              </>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Quantity
+                  <input type="text" style={inputStyle} placeholder="e.g. 100" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })} />
+                </label>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Rate
+                  <input type="text" style={inputStyle} placeholder="e.g. 250.00" value={editForm.rate} onChange={(e) => setEditForm({ ...editForm, rate: e.target.value })} />
+                </label>
+              </div>
+            )}
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
               Target Date
               <input type="date" style={inputStyle} value={editForm.target_date} onChange={(e) => setEditForm({ ...editForm, target_date: e.target.value })} />

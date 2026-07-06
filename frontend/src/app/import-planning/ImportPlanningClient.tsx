@@ -24,7 +24,6 @@ export const APPROVED_COL_DEFS_BASE: ColDef[] = [
   { key: "pi_number",                    label: "PI Number",       type: "text"   },
   { key: "etd",                          label: "ETD",             type: "date"   },
   { key: "port",                         label: "Port",            type: "text"   },
-  { key: "confirmed_shipping_time",      label: "Shipping Time",   type: "amount" },
   { key: "shipping_company",             label: "Shipping Co.",    type: "text"   },
   { key: "freight_charges",              label: "Freight",         type: "amount" },
   { key: "estimated_destination_charges",label: "Dest. Charges",   type: "amount" },
@@ -42,7 +41,6 @@ export const APPROVED_COLS_BASE = [
   { key: "pi_number", label: "PI Number" },
   { key: "etd", label: "ETD" },
   { key: "port", label: "Port" },
-  { key: "confirmed_shipping_time", label: "Shipping Time" },
   { key: "shipping_company", label: "Shipping Co." },
   { key: "estimated_destination_charges", label: "Dest. Charges" },
   { key: "freight_charges", label: "Freight" },
@@ -134,7 +132,7 @@ export default function ImportPlanningClient({
 
   // Approved edit modal state
   const [editRow, setEditRow] = useState<Row | null>(null);
-  const [editForm, setEditForm] = useState({ confirmed_shipping_time: "", estimated_destination_charges: "", bl_no: "", bl_date: "", insurance: "", confirmed_eta: "", port: "" });
+  const [editForm, setEditForm] = useState({ estimated_destination_charges: "", bl_no: "", bl_date: "", insurance: "", confirmed_eta: "", port: "" });
   const [editSaving, setEditSaving] = useState(false);
 
   async function fetchRows() {
@@ -270,7 +268,6 @@ export default function ImportPlanningClient({
           freight_charges: freightInr ?? moved.freight_charges,
           shipping_company: opt?.shipping_line ?? moved.shipping_company,
           estimated_eta: opt?.eta ?? moved.estimated_eta,
-          confirmed_shipping_time: opt?.name ?? moved.confirmed_shipping_time,
         };
         setPending((p) => p.filter((r) => r.uid !== dialogRow.uid));
         setApproved((a) => [updatedRow, ...a.filter((r) => r.uid !== dialogRow.uid)]);
@@ -347,7 +344,6 @@ export default function ImportPlanningClient({
   async function openEditModal(row: Row) {
     setEditRow(row);
     setEditForm({
-      confirmed_shipping_time: (row.confirmed_shipping_time as string) ?? "",
       estimated_destination_charges: (row.estimated_destination_charges as string) ?? "",
       bl_no: (row.bl_no as string) ?? "",
       bl_date: (row.bl_date as string) ?? "",
@@ -744,7 +740,6 @@ export default function ImportPlanningClient({
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>Edit Import Fields</h2>
             <p style={{ margin: 0, fontSize: "12px", color: "#a1a1aa", fontFamily: "var(--font-mono), monospace" }}>{String(editRow.uid).slice(0, 8)}… — {editRow.supplier_name ?? ""}</p>
             {[
-              { key: "confirmed_shipping_time",      label: "Shipping Time",        type: "text" },
               { key: "estimated_destination_charges", label: "Destination Charges",  type: "text" },
               { key: "bl_no",                         label: "BL No",                type: "text" },
               { key: "bl_date",                       label: "BL Date",              type: "date" },

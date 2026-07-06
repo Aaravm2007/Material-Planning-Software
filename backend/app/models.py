@@ -35,7 +35,6 @@ class MaterialRow(Base):
     # Import Planning stage
     etd = Column(String, nullable=True)
     port = Column(String, nullable=True)
-    confirmed_shipping_time = Column(String, nullable=True)
     shipping_company = Column(String, nullable=True)
     estimated_destination_charges = Column(String, nullable=True)
     freight_charges = Column(String, nullable=True)
@@ -63,7 +62,6 @@ class MaterialRow(Base):
     # Transportation stage
     transportation_inbound = Column(String, nullable=True)
     transportation_outbound_home = Column(String, nullable=True)
-    eway_bill = Column(String, nullable=True)
     sap_inward_no = Column(String, nullable=True)
     cha_name = Column(String, nullable=True)
     cha_charges = Column(String, nullable=True)
@@ -228,6 +226,27 @@ class ShippingLineFreight(Base):
     date = Column(String, nullable=False)
     freight_charge = Column(String, nullable=False)
     created_at = Column(String, nullable=True)
+
+
+class Branch(Base):
+    __tablename__ = "branches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    created_at = Column(String, nullable=True)
+
+
+class Allotment(Base):
+    __tablename__ = "allotments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String(36), nullable=False, index=True)  # MaterialRow.uid this allotment is against
+    branch_name = Column(String, nullable=False)
+    quantity = Column(String, nullable=True)
+    min_rate = Column(String, nullable=True)
+    max_rate = Column(String, nullable=True)
+    created_at = Column(String, nullable=True)
+    created_by = Column(String, nullable=True)
 
 
 class TableColumnOrder(Base):

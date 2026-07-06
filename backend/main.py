@@ -20,6 +20,8 @@ from app.api.hedging import router as hedging_router
 from app.api.cha import router as cha_router
 from app.api.credit import router as credit_router
 from app.api.table_order import router as table_order_router
+from app.api.branches import router as branches_router
+from app.api.allotments import router as allotments_router
 from app.database import engine, Base
 from app.deps import get_current_user
 
@@ -133,6 +135,8 @@ app.include_router(hedging_router,          dependencies=_auth)
 app.include_router(cha_router,              dependencies=_auth)
 app.include_router(credit_router,           dependencies=_auth)
 app.include_router(table_order_router,      dependencies=_auth)
+app.include_router(branches_router,         dependencies=_auth)
+app.include_router(allotments_router,       dependencies=_auth)
 
 
 @app.get("/health")

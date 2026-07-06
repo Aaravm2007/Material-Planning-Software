@@ -23,7 +23,7 @@ PO_PI_FIELDS = [
 ]
 
 IMPORT_FIELDS = [
-    "etd", "port", "confirmed_shipping_time", "shipping_company",
+    "etd", "port", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date", "insurance",
     "estimated_eta", "confirmed_eta", "inbond", "home_consumption", "shipment_status",
 ]
@@ -33,7 +33,7 @@ BOE_FIELDS = ["boe_no", "provisional_boe", "actual_boe", "customs_rate"]
 BOND_FIELDS = ["bond_parent_uid", "exbond_boe_no", "exbond_quantity"]
 
 TRANSPORT_FIELDS = [
-    "transportation_inbound", "transportation_outbound_home", "eway_bill",
+    "transportation_inbound", "transportation_outbound_home",
     "sap_inward_no", "cha_name", "cha_charges", "other_charges",
     "confirmed_destination_charges", "landing_cost",
 ]
@@ -52,12 +52,12 @@ EXPORT_FIELDS = [
     "supplier_model_number", "pi_quantity", "pi_rate", "currency", "exchange_rate",
     "pi_total_value", "po_total_value", "tentative_exworks_at_po_time",
     "confirmed_exworks", "credit_time",
-    "etd", "port", "shipment_status", "confirmed_shipping_time", "shipping_company",
+    "etd", "port", "shipment_status", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date",
     "insurance", "estimated_eta", "confirmed_eta", "inbond", "home_consumption",
     "boe_no", "provisional_boe", "actual_boe", "customs_rate",
     "bond_parent_uid", "exbond_boe_no", "exbond_quantity",
-    "eway_bill", "sap_inward_no", "cha_name", "cha_charges", "other_charges",
+    "sap_inward_no", "cha_name", "cha_charges", "other_charges",
     "confirmed_destination_charges", "transportation_inbound",
     "transportation_outbound_home", "landing_cost",
     "estimated_due_date", "advance_given", "hedged",
@@ -73,7 +73,7 @@ def _detect_stage(row: dict) -> str:
     v = row.get
     if any([v("advance_given"), v("hedged"), v("confirmed_payment_amt"), v("confirmed_payment_exchange")]):
         return "due_date"
-    if any([v("sap_inward_no"), v("transportation_inbound"), v("cha_name"), v("eway_bill")]):
+    if any([v("sap_inward_no"), v("transportation_inbound"), v("cha_name")]):
         return "transportation"
     if any([v("boe_no"), v("customs_rate")]):
         return "boe"
@@ -93,7 +93,7 @@ def _safe_float(val):
 
 def _row_to_dict(row: MaterialRow, boe_sum: float = 0.0, boe_inr_sum: float = 0.0) -> dict:
     transport_cols = [
-        "transportation_inbound", "transportation_outbound_home", "eway_bill",
+        "transportation_inbound", "transportation_outbound_home",
         "sap_inward_no", "cha_charges", "other_charges",
     ]
     total_transport = sum(_safe_float(getattr(row, c)) for c in transport_cols)
@@ -241,7 +241,6 @@ class PatchRowBody(BaseModel):
     exchange_rate: Optional[str] = None
     etd: Optional[str] = None
     port: Optional[str] = None
-    confirmed_shipping_time: Optional[str] = None
     shipping_company: Optional[str] = None
     estimated_destination_charges: Optional[str] = None
     freight_charges: Optional[str] = None
@@ -262,7 +261,6 @@ class PatchRowBody(BaseModel):
     exbond_quantity: Optional[str] = None
     transportation_inbound: Optional[str] = None
     transportation_outbound_home: Optional[str] = None
-    eway_bill: Optional[str] = None
     sap_inward_no: Optional[str] = None
     cha_name: Optional[str] = None
     cha_charges: Optional[str] = None

@@ -41,7 +41,6 @@ const SECTIONS = [
       { key: "shipment_status",               label: "Shipment Status", select: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"] },
       { key: "etd",                           label: "ETD",                   date: true },
       { key: "port",                          label: "Port"                              },
-      { key: "confirmed_shipping_time",       label: "Shipping Time (days)"              },
       { key: "shipping_company",              label: "Shipping Company"                  },
       { key: "estimated_destination_charges", label: "Est. Destination Charges"          },
       { key: "freight_charges",               label: "Freight Charges"                   },
@@ -66,7 +65,6 @@ const SECTIONS = [
   {
     title: "Transportation",
     fields: [
-      { key: "eway_bill",                     label: "E-Way Bill"              },
       { key: "sap_inward_no",                 label: "SAP Inward No"           },
       { key: "cha_name",                      label: "CHA Name"                },
       { key: "cha_charges",                   label: "CHA Charges"             },

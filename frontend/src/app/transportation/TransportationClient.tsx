@@ -16,7 +16,6 @@ export const TRANSPORT_COL_DEFS_BASE: ColDef[] = [
   { key: "exbond_quantity",            label: "Exbond Qty",        type: "amount" },
   { key: "pi_quantity",                label: "PI Qty",            type: "amount" },
   { key: "actual_boe",                 label: "Actual BOE",        type: "amount" },
-  { key: "eway_bill",                  label: "E-Way Bill",        type: "text"   },
   { key: "sap_inward_no",              label: "SAP Inward No",     type: "text"   },
   { key: "cha_name",                   label: "CHA Name",          type: "text"   },
   { key: "cha_charges",                label: "CHA Charges",       type: "amount" },
@@ -27,12 +26,11 @@ export const TRANSPORT_COL_DEFS_BASE: ColDef[] = [
   { key: "landing_cost",               label: "Landing Cost",      type: "amount" },
 ];
 
-interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; eway_bill: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
+interface Row { id: number; uid: string; cha_name: string | null; cha_charges: string | null; transportation_inbound: string | null; transportation_outbound_home: string | null; sap_inward_no: string | null; other_charges: string | null; confirmed_destination_charges: string | null; landing_cost: string | null; total_transport: string | null; actual_boe: string | null; pi_quantity: string | null; po_quantity: string | null; inbond: string | null; home_consumption: string | null; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface ChaRecord { id: number; cha_name: string; agent_name: string | null; cha_charges: string | null; date: string | null; }
 
 
 const TRANSPORT_FIELDS = [
-  { key: "eway_bill",                     label: "E-Way Bill",               amount: false },
   { key: "sap_inward_no",                 label: "SAP Inward No",            amount: false },
   { key: "cha_name",                      label: "CHA Name",                 amount: false },
   { key: "cha_charges",                   label: "CHA Charges",              amount: true  },
@@ -60,7 +58,7 @@ export const TRANSPORT_COLS_BASE = [
 const LANDING_COST_KEYS = new Set(["cha_charges", "other_charges", "confirmed_destination_charges", "transportation_inbound", "transportation_outbound_home"]);
 
 function calcTotal(row: Row): string {
-  const keys = ["transportation_inbound", "transportation_outbound_home", "eway_bill", "sap_inward_no", "cha_charges", "other_charges", "confirmed_destination_charges"];
+  const keys = ["transportation_inbound", "transportation_outbound_home", "sap_inward_no", "cha_charges", "other_charges", "confirmed_destination_charges"];
   const sum = keys.reduce((acc, k) => acc + (parseFloat(String(row[k] ?? "0")) || 0), 0);
   return sum.toFixed(2);
 }
@@ -148,7 +146,7 @@ export default function TransportationClient({ initialRows }: { initialRows: Row
     setSaving(true);
     const isInbond = editModal.inbond?.trim().toUpperCase() === "Y";
     const isHome = editModal.home_consumption?.trim().toUpperCase() === "Y";
-    const requiredFields = ["eway_bill", "sap_inward_no", "cha_name", "cha_charges", "other_charges", "confirmed_destination_charges"];
+    const requiredFields = ["sap_inward_no", "cha_name", "cha_charges", "other_charges", "confirmed_destination_charges"];
     if (isInbond) requiredFields.push("transportation_inbound");
     else if (isHome) requiredFields.push("transportation_outbound_home");
     const allFilled = requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");

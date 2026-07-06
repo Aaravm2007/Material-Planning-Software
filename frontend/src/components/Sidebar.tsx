@@ -15,6 +15,7 @@ const NAV = [
   { label: "Bond",            href: "/bond"            },
   { label: "Transportation",  href: "/transportation"  },
   { label: "Due Date",        href: "/due-date"        },
+  { label: "Allotment",       href: "/allotment"       },
 ];
 
 const REPORTS_NAV = [
@@ -29,6 +30,7 @@ const MASTERS_NAV = [
   { label: "CHA",                href: "/masters/cha"            },
   { label: "Hedging",            href: "/masters/hedging"        },
   { label: "Credit",             href: "/masters/credit"         },
+  { label: "Branches",           href: "/masters/branches"       },
   { label: "Table Order",        href: "/masters/table-order"    },
 ];
 

@@ -29,7 +29,6 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "etd",                           label: "ETD"                      },
   { key: "port",                          label: "Port"                     },
   { key: "shipment_status",               label: "Shipment Status"          },
-  { key: "confirmed_shipping_time",       label: "Shipping Time"            },
   { key: "shipping_company",              label: "Shipping Company"         },
   { key: "estimated_destination_charges", label: "Est. Destination Charges" },
   { key: "freight_charges",               label: "Freight Charges"          },
@@ -47,7 +46,6 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "actual_boe",                    label: "Actual BOE"               },
   { key: "actual_boe_inr",                label: "Actual BOE (INR)"         },
   // Transportation
-  { key: "eway_bill",                     label: "E-Way Bill"               },
   { key: "sap_inward_no",                 label: "SAP Inward No"            },
   { key: "cha_name",                      label: "CHA Name"                 },
   { key: "cha_charges",                   label: "CHA Charges"              },
@@ -70,7 +68,6 @@ const MONO_KEYS = new Set([
   "pi_quantity", "pi_rate", "pi_total_value", "exchange_rate", "credit_time",
   "estimated_destination_charges", "freight_charges",
   "customs_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
-  "confirmed_shipping_time", "eway_bill",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
   "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",

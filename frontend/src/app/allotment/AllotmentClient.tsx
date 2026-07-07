@@ -6,9 +6,9 @@ import { usePolling } from "@/lib/usePolling";
 
 interface Row {
   id: number; uid: string; pi_number: string | null; supplier_name: string | null;
-  rocket_item_code: string | null; pi_quantity: string | null; port: string | null;
-  estimated_eta: string | null; confirmed_eta: string | null; landing_cost: string | null;
-  allotted_qty: string | null; balance: string;
+  rocket_item_code: string | null; model_number: string | null; pi_quantity: string | null;
+  port: string | null; estimated_eta: string | null; confirmed_eta: string | null;
+  landing_cost: string | null; allotted_qty: string | null; balance: string;
 }
 interface Port { id: number; name: string; }
 interface Branch { id: number; name: string; }
@@ -87,6 +87,7 @@ export default function AllotmentClient({ initialRows }: { initialRows: Row[] })
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         uid: allotModal.uid, branch_name: form.branch_name, quantity: form.quantity,
+        model_number: allotModal.model_number || null,
         min_rate: form.min_rate || null, max_rate: form.max_rate || null,
       }),
     });
@@ -130,6 +131,7 @@ export default function AllotmentClient({ initialRows }: { initialRows: Row[] })
               <th style={TH}>PI Number</th>
               <th style={TH}>Supplier Name</th>
               <th style={TH}>Rocket Item Code</th>
+              <th style={TH}>Model No</th>
               <th style={TH}>Quantity</th>
               <th style={TH}>Allotted Qty</th>
               <th style={TH}>Balance</th>
@@ -141,15 +143,16 @@ export default function AllotmentClient({ initialRows }: { initialRows: Row[] })
           </thead>
           <tbody>
             {activeRows.length === 0 ? (
-              <tr><td colSpan={11} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "60px" }}>No rows in this port</td></tr>
+              <tr><td colSpan={12} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "60px" }}>No rows in this port</td></tr>
             ) : activeRows.map((row, i) => (
-              <tr key={row.uid}
+              <tr key={`${row.uid}-${row.model_number ?? ""}`}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{String(i + 1).padStart(3, "0")}</td>
                 <td style={TD}>{row.pi_number || <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={TD}>{row.supplier_name || <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={TD}>{row.rocket_item_code || <span style={{ color: "#d4d4d8" }}>—</span>}</td>
+                <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.model_number || <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.pi_quantity || "—"}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{row.allotted_qty || "0"}</td>
                 <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600 }}>{row.balance}</td>
@@ -171,7 +174,7 @@ export default function AllotmentClient({ initialRows }: { initialRows: Row[] })
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "420px", display: "flex", flexDirection: "column", gap: "14px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>Allot Quantity</h2>
             <p style={{ margin: 0, fontSize: "12px", color: "#a1a1aa", fontFamily: "var(--font-mono), monospace" }}>
-              {allotModal.pi_number ?? "—"} — Remaining {parseFloat(allotModal.balance).toFixed(2)}
+              {allotModal.pi_number ?? "—"}{allotModal.model_number ? ` · ${allotModal.model_number}` : ""} — Remaining {parseFloat(allotModal.balance).toFixed(2)}
             </p>
 
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>

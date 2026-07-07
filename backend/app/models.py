@@ -228,6 +228,20 @@ class ShippingLineFreight(Base):
     created_at = Column(String, nullable=True)
 
 
+class PiItem(Base):
+    """Model-wise bifurcation of a PI: one row per supplier model number.
+
+    Rows without any items behave as single-product rows (legacy path)."""
+    __tablename__ = "pi_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uid = Column(String(36), nullable=False, index=True)  # MaterialRow.uid
+    model_number = Column(String, nullable=False)
+    quantity = Column(String, nullable=True)
+    rate = Column(String, nullable=True)
+    created_at = Column(String, nullable=True)
+
+
 class Branch(Base):
     __tablename__ = "branches"
 
@@ -242,6 +256,7 @@ class Allotment(Base):
     id = Column(Integer, primary_key=True, index=True)
     uid = Column(String(36), nullable=False, index=True)  # MaterialRow.uid this allotment is against
     branch_name = Column(String, nullable=False)
+    model_number = Column(String, nullable=True)  # null for legacy single-product rows
     quantity = Column(String, nullable=True)
     min_rate = Column(String, nullable=True)
     max_rate = Column(String, nullable=True)

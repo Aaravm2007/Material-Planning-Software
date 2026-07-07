@@ -5,9 +5,9 @@ import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleContext";
-import AmountInput from "@/components/AmountInput";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import PiItemsEditor, { PiItemDraft, blankItem, itemsTotalValue, nonEmptyItems } from "@/components/PiItemsEditor";
 
 interface Plan {
   id: number;
@@ -30,12 +30,11 @@ interface Supplier { id: number; supplier_name: string; supplier_code: string; }
 
 const PO_PI_DIALOG_FIELDS = [
   "supplier_name", "supplier_code",
-  "supplier_model_number", "rocket_item_code",
-  "po_number", "pi_number",
-  "date_of_po", "pi_date",
-  "pi_quantity", "pi_rate",
-  "currency", "exchange_rate",
-  "confirmed_exworks", "credit_time",
+  "rocket_item_code", "po_number",
+  "pi_number", "date_of_po",
+  "pi_date", "currency",
+  "exchange_rate", "confirmed_exworks",
+  "credit_time",
 ] as const;
 
 const PO_PI_LABELS: Record<string, string> = {
@@ -50,24 +49,17 @@ const PO_PI_LABELS: Record<string, string> = {
 
 const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks"]);
 
-type PoPiForm = Record<string, string> & { pi_total_value: string };
+type PoPiForm = Record<string, string>;
 
 function emptyPoPiForm(): PoPiForm {
-  return Object.fromEntries([...PO_PI_DIALOG_FIELDS, "pi_total_value"].map((f) => [f, ""])) as PoPiForm;
+  return Object.fromEntries(PO_PI_DIALOG_FIELDS.map((f) => [f, ""])) as PoPiForm;
 }
 
-function calcPiTotal(form: PoPiForm): string {
-  const q = parseFloat(form.pi_quantity) || 0;
-  const r = parseFloat(form.pi_rate) || 0;
-  return q && r ? String(parseFloat((q * r).toFixed(4))) : "";
-}
-
-function calcPoTotalInr(form: PoPiForm): string {
-  const pi = parseFloat(form.pi_total_value) || 0;
-  if (!pi) return "";
-  if (form.currency === "INR") return String(pi);
-  const rate = parseFloat(form.exchange_rate) || 0;
-  return rate ? String(parseFloat((pi * rate).toFixed(4))) : "";
+function calcPoTotalInr(piTotal: number, currency: string, exchangeRate: string): string {
+  if (!piTotal) return "";
+  if (currency === "INR") return String(parseFloat(piTotal.toFixed(4)));
+  const rate = parseFloat(exchangeRate) || 0;
+  return rate ? String(parseFloat((piTotal * rate).toFixed(4))) : "";
 }
 
 const btnStyle = (variant: "primary" | "danger" | "ghost" | "action"): React.CSSProperties => ({
@@ -167,10 +159,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
 
   const [poPiModal, setPoPiModal] = useState<Plan | null>(null);
   const [poPiForm, setPoPiForm] = useState<PoPiForm>(emptyPoPiForm());
+  const [poPiItems, setPoPiItems] = useState<PiItemDraft[]>([blankItem()]);
   const [poPiSaving, setPoPiSaving] = useState(false);
   const [selectedPoPiSupplier, setSelectedPoPiSupplier] = useState<Supplier | null>(null);
   const [poPiModels, setPoPiModels] = useState<string[]>([]);
   const [newModelModal, setNewModelModal] = useState(false);
+  const [newPoPiModels, setNewPoPiModels] = useState<string[]>([]);
   // Set when the order plan's unit is "containers": tracks how many container
   // rows (total) need PO/PI entries and which one (index, 0-based) is on screen.
   const [containerInfo, setContainerInfo] = useState<{ total: number; index: number } | null>(null);
@@ -284,26 +278,44 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     setEditSaving(false);
   }
 
+  function basePrefilledItems(plan: Plan): PiItemDraft[] {
+    // Each container's own quantity is nos_per_container; for "nos" plans the
+    // whole planned quantity carries over as-is.
+    const qty = plan.unit === "containers" ? (plan.nos_per_container ?? "") : (plan.quantity ?? "");
+    return [{
+      model_number: plan.supplier_model_number ?? "",
+      quantity: qty,
+      rate: plan.rate ?? "",
+    }];
+  }
+
   function basePrefilledForm(plan: Plan): PoPiForm {
     const prefilled = emptyPoPiForm();
     prefilled.supplier_name = plan.supplier_name;
-    // Each container's own quantity is nos_per_container; for "nos" plans the
-    // whole planned quantity carries over as-is.
-    if (plan.unit === "containers") {
-      if (plan.nos_per_container) prefilled.pi_quantity = plan.nos_per_container;
-    } else if (plan.quantity) {
-      prefilled.pi_quantity = plan.quantity;
-    }
-    if (plan.rate) prefilled.pi_rate = plan.rate;
-    prefilled.pi_total_value = calcPiTotal(prefilled);
     return prefilled;
   }
 
   function formFromRow(row: Record<string, string | null>): PoPiForm {
     const prefilled = emptyPoPiForm();
     for (const f of PO_PI_DIALOG_FIELDS) prefilled[f] = row[f] ?? "";
-    prefilled.pi_total_value = calcPiTotal(prefilled);
     return prefilled;
+  }
+
+  async function itemsFromRow(row: Record<string, string | null>): Promise<PiItemDraft[]> {
+    const res = await apiFetch(`${API}/api/rows/${row.uid}/items`);
+    const data = res.ok ? await res.json() : [];
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((it: PiItemDraft) => ({
+        model_number: String(it.model_number ?? ""),
+        quantity: String(it.quantity ?? ""),
+        rate: String(it.rate ?? ""),
+      }));
+    }
+    return [{
+      model_number: row.supplier_model_number ?? "",
+      quantity: row.pi_quantity ?? "",
+      rate: row.pi_rate ?? "",
+    }];
   }
 
   async function openPoPiModal(plan: Plan) {
@@ -318,11 +330,13 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
       }
       const last = existingRows[existingRows.length - 1];
       const prefilled = last ? formFromRow(last) : basePrefilledForm(plan);
+      const prefilledItems = last ? await itemsFromRow(last) : basePrefilledItems(plan);
       const match = suppliers.find((s) => s.supplier_name === prefilled.supplier_name) ?? null;
       if (match) { prefilled.supplier_code = match.supplier_code; fetchPoPiModels(match); }
       setSelectedPoPiSupplier(match);
       setContainerInfo({ total, index: existingRows.length });
       setPoPiForm(prefilled);
+      setPoPiItems(prefilledItems);
       setPoPiModal(plan);
       return;
     }
@@ -332,6 +346,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     if (match) { prefilled.supplier_code = match.supplier_code; fetchPoPiModels(match); }
     setSelectedPoPiSupplier(match);
     setPoPiForm(prefilled);
+    setPoPiItems(basePrefilledItems(plan));
     setPoPiModal(plan);
   }
 
@@ -339,15 +354,13 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     const match = suppliers.find((s) => s.supplier_name === name) ?? null;
     setSelectedPoPiSupplier(match);
     if (match) fetchPoPiModels(match); else setPoPiModels([]);
-    setPoPiForm((f) => ({ ...f, supplier_name: name, supplier_code: match ? match.supplier_code : f.supplier_code, supplier_model_number: "" }));
+    setPoPiForm((f) => ({ ...f, supplier_name: name, supplier_code: match ? match.supplier_code : f.supplier_code }));
+    setPoPiItems((its) => its.map((it) => ({ ...it, model_number: "" })));
   }
 
   function handlePoPiFieldChange(field: string, value: string) {
     setPoPiForm((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === "pi_quantity" || field === "pi_rate") {
-        next.pi_total_value = calcPiTotal(next);
-      }
       if (field === "currency" && value === "INR") {
         next.exchange_rate = "";
       }
@@ -356,35 +369,46 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   }
 
   function handleCreatePoPi() {
-    const model = poPiForm.supplier_model_number.trim();
-    if (model && selectedPoPiSupplier && !poPiModels.includes(model)) { setNewModelModal(true); return; }
+    const unknown = [...new Set(
+      nonEmptyItems(poPiItems).map((it) => it.model_number.trim())
+        .filter((m) => !poPiModels.includes(m))
+    )];
+    if (unknown.length > 0 && selectedPoPiSupplier) {
+      setNewPoPiModels(unknown);
+      setNewModelModal(true);
+      return;
+    }
     doCreatePoPi(false);
   }
 
   async function doCreatePoPi(saveModel: boolean) {
     setPoPiSaving(true);
-    if (saveModel && selectedPoPiSupplier && poPiForm.supplier_model_number.trim()) {
-      await apiFetch(`${API}/api/suppliers/${selectedPoPiSupplier.id}/models`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_number: poPiForm.supplier_model_number.trim() }),
-      });
+    if (saveModel && selectedPoPiSupplier && newPoPiModels.length > 0) {
+      for (const m of newPoPiModels) {
+        await apiFetch(`${API}/api/suppliers/${selectedPoPiSupplier.id}/models`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model_number: m }),
+        });
+      }
+      setPoPiModels((prev) => [...prev, ...newPoPiModels].sort());
     }
-    const body: Record<string, string | number> = { order_plan_id: poPiModal!.id };
+    const body: Record<string, string | number | PiItemDraft[]> = { order_plan_id: poPiModal!.id };
     for (const [k, v] of Object.entries(poPiForm)) if (String(v).trim()) body[k] = String(v).trim();
-    const inrTotal = calcPoTotalInr(poPiForm);
-    if (poPiForm.pi_total_value) body.pi_total_value = poPiForm.pi_total_value;
+    const sendItems = nonEmptyItems(poPiItems);
+    if (sendItems.length > 0) body.items = sendItems;
     if (inrTotal) body.po_total_value = inrTotal;
     const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
       setNewModelModal(false);
+      setNewPoPiModels([]);
       if (containerInfo && containerInfo.index + 1 < containerInfo.total) {
-        // more containers to go — carry the current form forward as the next
-        // page's starting point (per-container tweaks happen from there)
+        // more containers to go — carry the current form + items forward as the
+        // next page's starting point (per-container tweaks happen from there)
         setContainerInfo({ ...containerInfo, index: containerInfo.index + 1 });
       } else {
-        setPoPiModal(null); setPoPiForm(emptyPoPiForm());
+        setPoPiModal(null); setPoPiForm(emptyPoPiForm()); setPoPiItems([blankItem()]);
         setSelectedPoPiSupplier(null); setPoPiModels([]);
         setContainerInfo(null);
         router.push("/po-pi");
@@ -394,12 +418,13 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   }
 
   function closePoPiModal() {
-    setPoPiModal(null); setPoPiForm(emptyPoPiForm());
+    setPoPiModal(null); setPoPiForm(emptyPoPiForm()); setPoPiItems([blankItem()]);
     setSelectedPoPiSupplier(null); setPoPiModels([]);
     setContainerInfo(null);
   }
 
-  const inrTotal = calcPoTotalInr(poPiForm);
+  const poPiTotal = itemsTotalValue(poPiItems);
+  const inrTotal = calcPoTotalInr(poPiTotal, poPiForm.currency, poPiForm.exchange_rate);
 
   function renderPoPiField(f: string) {
     if (f === "supplier_name") return (
@@ -413,15 +438,6 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
         <option value="">— select code —</option>
         {suppliers.map((s) => <option key={s.id} value={s.supplier_code}>{s.supplier_code}</option>)}
       </select>
-    );
-    if (f === "supplier_model_number") return (
-      <>
-        <input type="text" list="op-model-list" style={inputStyle}
-          placeholder={selectedPoPiSupplier ? "Type or pick model…" : "Select supplier first"}
-          disabled={!selectedPoPiSupplier} value={poPiForm[f]}
-          onChange={(e) => handlePoPiFieldChange(f, e.target.value)} />
-        <datalist id="op-model-list">{poPiModels.map((m) => <option key={m} value={m} />)}</datalist>
-      </>
     );
     if (f === "currency") return (
       <select style={inputStyle} value={poPiForm.currency} onChange={(e) => handlePoPiFieldChange("currency", e.target.value)}>
@@ -441,10 +457,6 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     if (f === "credit_time") return (
       <input type="number" min="0" step="1" style={inputStyle} placeholder="Number of days"
         value={poPiForm[f]} onChange={(e) => handlePoPiFieldChange(f, e.target.value)} />
-    );
-    if (f === "pi_rate") return (
-      <AmountInput style={inputStyle} placeholder={PO_PI_LABELS[f]} value={poPiForm[f]}
-        currency={poPiForm.currency} onChange={(raw) => handlePoPiFieldChange(f, raw)} />
     );
     return (
       <input type={DATE_FIELDS.has(f) ? "date" : "text"} style={inputStyle}
@@ -703,11 +715,14 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
               })}
             </div>
 
+            <PiItemsEditor items={poPiItems} onChange={setPoPiItems} models={poPiModels}
+              datalistId="op-model-list" disabled={!selectedPoPiSupplier && suppliers.length > 0} />
+
             {/* PI total + INR total display */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
                 PI Total ({poPiForm.currency || "orig. currency"}) — auto
-                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={poPiForm.pi_total_value} readOnly placeholder="Auto-calculated" />
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={poPiTotal ? poPiTotal.toFixed(2) : ""} readOnly placeholder="Auto-calculated" />
               </label>
               {poPiForm.currency !== "INR" && (
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -734,10 +749,15 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}
           onKeyDown={(e) => { if (e.key === "Enter") doCreatePoPi(true); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "400px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New model number</h2>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New model number{newPoPiModels.length > 1 ? "s" : ""}</h2>
             <p style={{ margin: 0, fontSize: "14px", fontFamily: "var(--font-sans), sans-serif", color: "#52525b", lineHeight: 1.5 }}>
-              <strong style={{ fontFamily: "var(--font-mono), monospace", background: "#f4f4f5", padding: "1px 6px", borderRadius: "4px" }}>{poPiForm.supplier_model_number}</strong>{" "}
-              is not in <strong>{selectedPoPiSupplier?.supplier_name}</strong>'s model list. Save it?
+              {newPoPiModels.map((m, i) => (
+                <span key={m}>
+                  {i > 0 && ", "}
+                  <strong style={{ fontFamily: "var(--font-mono), monospace", background: "#f4f4f5", padding: "1px 6px", borderRadius: "4px" }}>{m}</strong>
+                </span>
+              ))}{" "}
+              {newPoPiModels.length > 1 ? "are" : "is"} not in <strong>{selectedPoPiSupplier?.supplier_name}</strong>'s model list. Save {newPoPiModels.length > 1 ? "them" : "it"}?
             </p>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setNewModelModal(false)}>Cancel</button>

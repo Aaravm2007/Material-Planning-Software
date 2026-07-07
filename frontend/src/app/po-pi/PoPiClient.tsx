@@ -4,11 +4,11 @@ import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { useRouter } from "next/navigation";
-import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import PiItemsEditor, { PiItemDraft, blankItem, itemsTotalValue, nonEmptyItems } from "@/components/PiItemsEditor";
 
 interface Row { id: number; uid: string; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
 interface Supplier { id: number; supplier_name: string; supplier_code: string; }
@@ -33,21 +33,22 @@ export const PO_PI_COLS_BASE = [
   { key: "credit_time",           label: "Credit Time"      },
 ];
 
-// Fields shown in the dialog (po_total_value computed & sent but not rendered as input)
+// Fields shown in the dialog (po_total_value computed & sent but not rendered as
+// input; model/quantity/rate live in the model-wise items editor)
 const DIALOG_FIELDS = [
   "supplier_name", "supplier_code",
-  "supplier_model_number", "rocket_item_code",
-  "po_number", "pi_number",
-  "date_of_po", "pi_date",
-  "pi_quantity", "pi_rate",
-  "currency", "exchange_rate",
-  "confirmed_exworks", "credit_time",
+  "rocket_item_code", "po_number",
+  "pi_number", "date_of_po",
+  "pi_date", "currency",
+  "exchange_rate", "confirmed_exworks",
+  "credit_time",
 ] as const;
 
 // Fields actually shown in the "Enter/Edit Fields" dialog (openEdit) -- a subset
 // of DIALOG_FIELDS, since supplier/PO identity fields are set once at row
-// creation and aren't part of this dialog.
-const EDIT_FIELDS = ["pi_number", "pi_date", "pi_quantity", "pi_rate", "currency", "exchange_rate", "confirmed_exworks", "credit_time"] as const;
+// creation and aren't part of this dialog. Quantity/rate completeness is
+// checked against the items list instead.
+const EDIT_FIELDS = ["pi_number", "pi_date", "currency", "exchange_rate", "confirmed_exworks", "credit_time"] as const;
 
 const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks"]);
 
@@ -61,24 +62,17 @@ const LABELS: Record<string, string> = {
   confirmed_exworks: "Ex-Works", credit_time: "Credit Time (days)",
 };
 
-type FormState = Record<string, string> & { pi_total_value: string };
+type FormState = Record<string, string>;
 
 function emptyForm(): FormState {
-  return Object.fromEntries([...DIALOG_FIELDS, "pi_total_value"].map((f) => [f, ""])) as FormState;
+  return Object.fromEntries(DIALOG_FIELDS.map((f) => [f, ""])) as FormState;
 }
 
-function calcPiTotal(form: FormState): string {
-  const q = parseFloat(form.pi_quantity) || 0;
-  const r = parseFloat(form.pi_rate) || 0;
-  return q && r ? String(parseFloat((q * r).toFixed(4))) : "";
-}
-
-function calcPoTotalInr(form: FormState): string {
-  const pi = parseFloat(form.pi_total_value) || 0;
-  if (!pi) return "";
-  if (form.currency === "INR") return String(pi);
-  const rate = parseFloat(form.exchange_rate) || 0;
-  return rate ? String(parseFloat((pi * rate).toFixed(4))) : "";
+function calcPoTotalInr(piTotal: number, currency: string, exchangeRate: string): string {
+  if (!piTotal) return "";
+  if (currency === "INR") return String(parseFloat(piTotal.toFixed(4)));
+  const rate = parseFloat(exchangeRate) || 0;
+  return rate ? String(parseFloat((piTotal * rate).toFixed(4))) : "";
 }
 
 const btnStyle = (variant: "primary" | "danger" | "ghost" | "action"): React.CSSProperties => ({
@@ -130,10 +124,13 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [items, setItems] = useState<PiItemDraft[]>([blankItem()]);
   const [saving, setSaving] = useState(false);
   const [newModelModal, setNewModelModal] = useState(false);
+  const [newModels, setNewModels] = useState<string[]>([]);
   const [editModal, setEditModal] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editItems, setEditItems] = useState<PiItemDraft[]>([blankItem()]);
   const [importing, setImporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -189,16 +186,13 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     const match = suppliers.find((s) => s.supplier_name === name) ?? null;
     setSelectedSupplier(match);
     if (match) fetchModels(match); else setSupplierModels([]);
-    setForm((f) => ({ ...f, supplier_name: name, supplier_code: match ? match.supplier_code : f.supplier_code, supplier_model_number: "" }));
+    setForm((f) => ({ ...f, supplier_name: name, supplier_code: match ? match.supplier_code : f.supplier_code }));
+    setItems((its) => its.map((it) => ({ ...it, model_number: "" })));
   }
 
   function handleFieldChange(field: string, value: string) {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      // pi total auto-calc
-      if (field === "pi_quantity" || field === "pi_rate") {
-        next.pi_total_value = calcPiTotal(next);
-      }
       // exchange rate not needed for INR
       if (field === "currency" && value === "INR") {
         next.exchange_rate = "";
@@ -207,11 +201,16 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     });
   }
 
-  const inrTotal = calcPoTotalInr(form);
+  const piTotal = itemsTotalValue(items);
+  const inrTotal = calcPoTotalInr(piTotal, form.currency, form.exchange_rate);
 
   function handleCreate() {
-    const model = form.supplier_model_number.trim();
-    if (model && selectedSupplier && !supplierModels.includes(model)) {
+    const unknown = [...new Set(
+      nonEmptyItems(items).map((it) => it.model_number.trim())
+        .filter((m) => !supplierModels.includes(m))
+    )];
+    if (unknown.length > 0 && selectedSupplier) {
+      setNewModels(unknown);
       setNewModelModal(true);
       return;
     }
@@ -220,17 +219,21 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
 
   async function doCreate(saveModel = false) {
     setSaving(true);
-    if (saveModel && selectedSupplier && form.supplier_model_number.trim()) {
-      await apiFetch(`${API}/api/suppliers/${selectedSupplier.id}/models`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_number: form.supplier_model_number.trim() }),
-      });
-      setSupplierModels((m) => [...m, form.supplier_model_number.trim()].sort());
+    if (saveModel && selectedSupplier && newModels.length > 0) {
+      for (const m of newModels) {
+        await apiFetch(`${API}/api/suppliers/${selectedSupplier.id}/models`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model_number: m }),
+        });
+      }
+      setSupplierModels((prev) => [...prev, ...newModels].sort());
     }
-    const body: Record<string, string> = {};
+    const body: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(form)) if (v.trim()) body[k] = v.trim();
-    // store pi_total_value and po_total_value (INR)
-    if (form.pi_total_value) body.pi_total_value = form.pi_total_value;
+    const sendItems = nonEmptyItems(items);
+    if (sendItems.length > 0) body.items = sendItems;
+    // pi_quantity / pi_total_value / supplier_model_number are recomputed
+    // server-side from items; po_total_value (INR) is client-computed
     if (inrTotal) body.po_total_value = inrTotal;
     const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -240,7 +243,9 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       setRows((r) => [created, ...r]);
       setShowModal(false);
       setNewModelModal(false);
+      setNewModels([]);
       setForm(emptyForm());
+      setItems([blankItem()]);
       setSelectedSupplier(null);
       setSupplierModels([]);
     }
@@ -252,18 +257,36 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     setRows((r) => r.filter((x) => x.uid !== uid));
   }
 
-  function openEdit(row: Row) {
+  async function openEdit(row: Row) {
     setEditForm({
       pi_number: String(row.pi_number ?? ""),
       pi_date: String(row.pi_date ?? ""),
-      pi_quantity: String(row.pi_quantity ?? ""),
-      pi_rate: String(row.pi_rate ?? ""),
       currency: String(row.currency ?? ""),
       exchange_rate: String(row.exchange_rate ?? ""),
       confirmed_exworks: String(row.confirmed_exworks ?? ""),
       credit_time: String(row.credit_time ?? ""),
     });
     setEditModal(row);
+    // load the row's model-wise items; fall back to a single line built
+    // from the legacy single-product fields
+    const res = await apiFetch(`${API}/api/rows/${row.uid as string}/items`);
+    const data = res.ok ? await res.json() : [];
+    if (Array.isArray(data) && data.length > 0) {
+      setEditItems(data.map((it: PiItemDraft) => ({
+        model_number: String(it.model_number ?? ""),
+        quantity: String(it.quantity ?? ""),
+        rate: String(it.rate ?? ""),
+      })));
+    } else {
+      setEditItems([{
+        model_number: String(row.supplier_model_number ?? ""),
+        quantity: String(row.pi_quantity ?? ""),
+        rate: String(row.pi_rate ?? ""),
+      }]);
+    }
+    // best-effort: load the supplier's model list for the datalist
+    const supplier = suppliers.find((s) => s.supplier_name === row.supplier_name);
+    if (supplier) fetchModels(supplier);
   }
 
   async function handleSaveEdit() {
@@ -271,10 +294,17 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     setSaving(true);
     // exchange_rate isn't shown/required when currency is INR (no conversion needed)
     const requiredFields = editForm.currency === "INR" ? EDIT_FIELDS.filter((k) => k !== "exchange_rate") : EDIT_FIELDS;
-    const allFilled = requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
+    const sendItems = nonEmptyItems(editItems);
+    const itemsComplete = sendItems.length > 0 && sendItems.every((it) => it.quantity.trim() !== "" && it.rate.trim() !== "");
+    const allFilled = itemsComplete && requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
+    const editTotal = itemsTotalValue(editItems);
+    const editInr = calcPoTotalInr(editTotal, editForm.currency, editForm.exchange_rate);
+    const body: Record<string, unknown> = { ...editForm, fields_entered: allFilled };
+    if (sendItems.length > 0) body.items = sendItems;
+    if (editInr) body.po_total_value = editInr;
     const res = await apiFetch(`${API}/api/rows/${editModal.uid as string}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, fields_entered: allFilled }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -310,17 +340,6 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
         </select>
       );
     }
-    if (f === "supplier_model_number") {
-      return (
-        <>
-          <input type="text" list="po-pi-model-list" style={inputStyle}
-            placeholder={selectedSupplier ? "Type or pick model…" : "Select supplier first"}
-            disabled={!selectedSupplier} value={form[f]}
-            onChange={(e) => handleFieldChange(f, e.target.value)} />
-          <datalist id="po-pi-model-list">{supplierModels.map((m) => <option key={m} value={m} />)}</datalist>
-        </>
-      );
-    }
     if (f === "currency") {
       return (
         <select style={inputStyle} value={form.currency} onChange={(e) => handleFieldChange("currency", e.target.value)}>
@@ -340,9 +359,6 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     }
     if (f === "credit_time") {
       return <input type="number" min="0" step="1" style={inputStyle} placeholder="Number of days" value={form[f]} onChange={(e) => handleFieldChange(f, e.target.value)} />;
-    }
-    if (f === "pi_rate") {
-      return <AmountInput style={inputStyle} placeholder={LABELS[f]} value={form[f]} currency={form.currency} onChange={(raw) => handleFieldChange(f, raw)} />;
     }
     return (
       <input type={DATE_FIELDS.has(f) ? "date" : "text"} style={inputStyle}
@@ -434,11 +450,14 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
               })}
             </div>
 
+            <PiItemsEditor items={items} onChange={setItems} models={supplierModels}
+              datalistId="po-pi-model-list" disabled={!selectedSupplier && suppliers.length > 0} />
+
             {/* PI total + INR total display */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
                 PI Total ({form.currency || "orig. currency"}) — auto
-                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={form.pi_total_value} readOnly placeholder="Auto-calculated" />
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={piTotal ? piTotal.toFixed(2) : ""} readOnly placeholder="Auto-calculated" />
               </label>
               {form.currency !== "INR" && (
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -449,7 +468,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
             </div>
 
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm(emptyForm()); setSelectedSupplier(null); setSupplierModels([]); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm(emptyForm()); setItems([blankItem()]); setSelectedSupplier(null); setSupplierModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
             </div>
           </div>
@@ -464,8 +483,6 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
             {[
               { key: "pi_number",       label: "PI Number",      type: "text"   },
               { key: "pi_date",         label: "PI Date",        type: "date"   },
-              { key: "pi_quantity",     label: "PI Quantity",    type: "number" },
-              { key: "pi_rate",         label: "PI Rate",        type: "text"   },
               { key: "confirmed_exworks", label: "Ex-Works Date", type: "date"  },
               { key: "credit_time",     label: "Credit Time (days)", type: "number" },
             ].map((f) => (
@@ -474,6 +491,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
                 <input type={f.type} style={inputStyle} value={editForm[f.key] ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} />
               </label>
             ))}
+            <PiItemsEditor items={editItems} onChange={setEditItems} models={supplierModels} datalistId="po-pi-edit-model-list" />
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
               Currency
               <select style={inputStyle} value={editForm.currency ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, currency: e.target.value, exchange_rate: e.target.value === "INR" ? "" : prev.exchange_rate }))}>
@@ -501,10 +519,15 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}
           onKeyDown={(e) => { if (e.key === "Enter") doCreate(true); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "400px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New model number</h2>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New model number{newModels.length > 1 ? "s" : ""}</h2>
             <p style={{ margin: 0, fontSize: "14px", fontFamily: "var(--font-sans), sans-serif", color: "#52525b", lineHeight: 1.5 }}>
-              <strong style={{ fontFamily: "var(--font-mono), monospace", background: "#f4f4f5", padding: "1px 6px", borderRadius: "4px" }}>{form.supplier_model_number}</strong> is not in{" "}
-              <strong>{selectedSupplier?.supplier_name}</strong>'s model list. Save it?
+              {newModels.map((m, i) => (
+                <span key={m}>
+                  {i > 0 && ", "}
+                  <strong style={{ fontFamily: "var(--font-mono), monospace", background: "#f4f4f5", padding: "1px 6px", borderRadius: "4px" }}>{m}</strong>
+                </span>
+              ))}{" "}
+              {newModels.length > 1 ? "are" : "is"} not in <strong>{selectedSupplier?.supplier_name}</strong>'s model list. Save {newModels.length > 1 ? "them" : "it"}?
             </p>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setNewModelModal(false)}>Cancel</button>

@@ -7,10 +7,10 @@ import { usePolling } from "@/lib/usePolling";
 
 interface Branch { id: number; name: string; }
 interface AllotmentHistoryEntry {
-  id: number; uid: string; branch_name: string; quantity: string | null;
-  min_rate: string | null; max_rate: string | null; created_at: string | null;
-  created_by: string | null; pi_number: string | null; supplier_name: string | null;
-  rocket_item_code: string | null; port: string | null;
+  id: number; uid: string; branch_name: string; model_number: string | null;
+  quantity: string | null; min_rate: string | null; max_rate: string | null;
+  created_at: string | null; created_by: string | null; pi_number: string | null;
+  supplier_name: string | null; rocket_item_code: string | null; port: string | null;
 }
 
 const btnStyle = (v: "primary" | "ghost" | "danger"): React.CSSProperties => ({
@@ -141,7 +141,7 @@ export default function BranchesClient({ initialBranches }: { initialBranches: B
                           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "12px" }}>
                             <thead>
                               <tr>
-                                {["PI Number", "Supplier", "Item Code", "Port", "Quantity", "Min Rate", "Max Rate", "Date"].map((h) => (
+                                {["PI Number", "Supplier", "Item Code", "Model No", "Port", "Quantity", "Min Rate", "Max Rate", "Date"].map((h) => (
                                   <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#a1a1aa", borderBottom: "1px solid #e4e4e7" }}>{h}</th>
                                 ))}
                               </tr>
@@ -152,6 +152,7 @@ export default function BranchesClient({ initialBranches }: { initialBranches: B
                                   <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono), monospace" }}>{h.pi_number ?? "—"}</td>
                                   <td style={{ padding: "6px 10px" }}>{h.supplier_name ?? "—"}</td>
                                   <td style={{ padding: "6px 10px" }}>{h.rocket_item_code ?? "—"}</td>
+                                  <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono), monospace" }}>{h.model_number ?? "—"}</td>
                                   <td style={{ padding: "6px 10px" }}>{h.port ?? "—"}</td>
                                   <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono), monospace" }}>{h.quantity ?? "—"}</td>
                                   <td style={{ padding: "6px 10px", fontFamily: "var(--font-mono), monospace" }}>{h.min_rate ?? "—"}</td>

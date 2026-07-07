@@ -9,7 +9,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
-from app.models import MaterialRow, ActualBoeEntry, User
+from app.models import MaterialRow, ActualBoeEntry, PiItem, User
 from app.deps import get_current_user
 
 router = APIRouter(prefix="/api/rows", tags=["rows"])
@@ -186,6 +186,117 @@ async def get_exbond_children(uid: str, db: AsyncSession = Depends(get_db)):
     ]
 
 
+@router.get("/{uid}/items")
+async def get_row_items(uid: str, db: AsyncSession = Depends(get_db)):
+    """Model-wise bifurcation of the row's PI (empty for single-product rows)."""
+    return [_item_dict(it) for it in await _get_items(db, uid)]
+
+
+@router.get("/{uid}/bond-items")
+async def get_bond_items(uid: str, db: AsyncSession = Depends(get_db)):
+    """Per-model remaining quantities for a bond row's exbond dialog.
+
+    Rows without items fall back to a single pseudo-item built from the
+    row's own supplier_model_number / pi_quantity / pi_rate."""
+    result = await db.execute(select(MaterialRow).where(MaterialRow.uid == uid))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Row not found")
+
+    items = await _get_items(db, uid)
+    parent_items = (
+        [{"model_number": it.model_number, "quantity": _safe_float(it.quantity), "rate": it.rate} for it in items]
+        if items
+        else [{"model_number": row.supplier_model_number or "", "quantity": _safe_float(row.pi_quantity), "rate": row.pi_rate}]
+    )
+
+    children_res = await db.execute(
+        select(MaterialRow).where(MaterialRow.bond_parent_uid == uid)
+    )
+    children = children_res.scalars().all()
+    used: dict[str, float] = {}
+    child_uids = [c.uid for c in children if c.uid]
+    child_items_by_uid: dict[str, list[PiItem]] = {}
+    if child_uids:
+        ci_res = await db.execute(select(PiItem).where(PiItem.uid.in_(child_uids)))
+        for it in ci_res.scalars().all():
+            child_items_by_uid.setdefault(it.uid, []).append(it)
+    for c in children:
+        c_items = child_items_by_uid.get(c.uid, [])
+        if c_items:
+            for it in c_items:
+                used[it.model_number] = used.get(it.model_number, 0.0) + _safe_float(it.quantity)
+        else:
+            model = c.supplier_model_number or ""
+            used[model] = used.get(model, 0.0) + _safe_float(c.exbond_quantity)
+
+    out = []
+    for p in parent_items:
+        taken = used.get(p["model_number"], 0.0)
+        out.append({
+            "model_number": p["model_number"],
+            "quantity": str(round(p["quantity"], 4)),
+            "rate": p["rate"],
+            "exbond_used": str(round(taken, 4)) if taken else None,
+            "remaining": str(round(p["quantity"] - taken, 4)),
+        })
+    return out
+
+
+class ItemBody(BaseModel):
+    model_number: str
+    quantity: Optional[str] = None
+    rate: Optional[str] = None
+
+
+def _item_dict(it: PiItem) -> dict:
+    qty = _safe_float(it.quantity)
+    rate = _safe_float(it.rate)
+    return {
+        "id": it.id,
+        "model_number": it.model_number,
+        "quantity": it.quantity,
+        "rate": it.rate,
+        "total": str(round(qty * rate, 2)) if qty and rate else None,
+    }
+
+
+async def _get_items(db: AsyncSession, uid: str) -> list[PiItem]:
+    result = await db.execute(
+        select(PiItem).where(PiItem.uid == uid).order_by(PiItem.id)
+    )
+    return list(result.scalars().all())
+
+
+async def _apply_items(db: AsyncSession, row: MaterialRow, items: list[ItemBody]) -> None:
+    """Replace the row's model-wise items and recompute the derived totals."""
+    for existing in await _get_items(db, row.uid):
+        await db.delete(existing)
+    now = datetime.now(timezone.utc).isoformat()
+    total_qty = 0.0
+    total_value = 0.0
+    for it in items:
+        db.add(PiItem(
+            uid=row.uid,
+            model_number=it.model_number.strip(),
+            quantity=it.quantity,
+            rate=it.rate,
+            created_at=now,
+        ))
+        total_qty += _safe_float(it.quantity)
+        total_value += _safe_float(it.quantity) * _safe_float(it.rate)
+    if items:
+        # only override when the items actually carry the numbers — a legacy
+        # split may pass items without rates while proration set the totals
+        if total_qty:
+            row.pi_quantity = str(round(total_qty, 4)).rstrip("0").rstrip(".")
+        if total_value:
+            row.pi_total_value = str(round(total_value, 2))
+        row.supplier_model_number = ", ".join(it.model_number.strip() for it in items)
+        if len(items) == 1 and items[0].rate:
+            row.pi_rate = items[0].rate
+
+
 class CreateRowBody(BaseModel):
     workflow_status: Optional[str] = None
     srno: Optional[str] = None
@@ -214,6 +325,7 @@ class CreateRowBody(BaseModel):
     bond_parent_uid: Optional[str] = None
     exbond_boe_no: Optional[str] = None
     exbond_quantity: Optional[str] = None
+    items: Optional[list[ItemBody]] = None
 
 
 class PatchRowBody(BaseModel):
@@ -273,11 +385,13 @@ class PatchRowBody(BaseModel):
     confirmed_payment_amt: Optional[str] = None
     confirmed_payment_exchange: Optional[str] = None
     advance_given: Optional[str] = None
+    items: Optional[list[ItemBody]] = None
 
 
 @router.post("/", status_code=201)
 async def create_row(body: CreateRowBody, db: AsyncSession = Depends(get_db)):
     data = body.model_dump(exclude_none=True)
+    data.pop("items", None)
     workflow_status = data.pop("workflow_status", None) or "po_pi"
     row = MaterialRow(
         uid=str(uuid.uuid4()),
@@ -285,6 +399,8 @@ async def create_row(body: CreateRowBody, db: AsyncSession = Depends(get_db)):
         **data,
     )
     db.add(row)
+    if body.items:
+        await _apply_items(db, row, body.items)
     await db.commit()
     await db.refresh(row)
     return _row_to_dict(row)
@@ -297,8 +413,11 @@ async def patch_row(uid: str, body: PatchRowBody, db: AsyncSession = Depends(get
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
     data = body.model_dump(exclude_none=True)
+    data.pop("items", None)
     for field, value in data.items():
         setattr(row, field, value)
+    if body.items is not None:
+        await _apply_items(db, row, body.items)
     if "workflow_status" in data:
         row.fields_entered = False
     row.modified_by = current_user.email
@@ -315,6 +434,8 @@ async def delete_row(uid: str, db: AsyncSession = Depends(get_db)):
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
+    for item in await _get_items(db, uid):
+        await db.delete(item)
     await db.delete(row)
     await db.commit()
 

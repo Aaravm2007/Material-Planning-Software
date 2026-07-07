@@ -38,6 +38,14 @@ interface Row {
   [key: string]: string | null | number | boolean;
 }
 
+interface BondItem {
+  model_number: string;
+  quantity: string;
+  rate: string | null;
+  exbond_used: string | null;
+  remaining: string;
+}
+
 const COPY_AS_IS_FIELDS = [
   "srno", "date_of_po", "supplier_name", "rocket_item_code", "supplier_code",
   "po_number", "po_rate", "pi_number", "pi_date", "supplier_model_number",
@@ -84,14 +92,23 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
   usePolling(fetchRows, 10_000);
 
   const [exbondModal, setExbondModal] = useState<Row | null>(null);
-  const [exbondForm, setExbondForm] = useState({ exbond_boe_no: "", exbond_quantity: "" });
+  const [exbondBoeNo, setExbondBoeNo] = useState("");
+  // per-model quantities being taken in this exbond, parallel to bondItems
+  const [bondItems, setBondItems] = useState<BondItem[]>([]);
+  const [takes, setTakes] = useState<string[]>([]);
   const [exbondError, setExbondError] = useState<string | null>(null);
   const [exbondSaving, setExbondSaving] = useState(false);
 
-  function openExbondModal(row: Row) {
+  async function openExbondModal(row: Row) {
     setExbondModal(row);
-    setExbondForm({ exbond_boe_no: "", exbond_quantity: "" });
+    setExbondBoeNo("");
+    setBondItems([]);
+    setTakes([]);
     setExbondError(null);
+    const res = await apiFetch(`${API}/api/rows/${row.uid}/bond-items`);
+    const data: BondItem[] = res.ok ? await res.json() : [];
+    setBondItems(data);
+    setTakes(data.map(() => ""));
   }
 
   async function handleBackToBoe(uid: string) {
@@ -104,33 +121,47 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
 
   async function handleSubmitExbond() {
     if (!exbondModal) return;
-    const qty = parseFloat(exbondForm.exbond_quantity) || 0;
-    const remaining = computeRemaining(exbondModal);
-    if (!exbondForm.exbond_boe_no.trim()) {
+    if (!exbondBoeNo.trim()) {
       setExbondError("Exbond BOE Number is required.");
       return;
     }
-    if (qty <= 0 || qty > remaining) {
-      setExbondError(`Exbond Quantity must be greater than 0 and no more than the remaining ${remaining.toFixed(2)}.`);
+    const totalTake = takes.reduce((sum, t) => sum + (parseFloat(t) || 0), 0);
+    if (totalTake <= 0) {
+      setExbondError("Enter an exbond quantity for at least one model.");
       return;
+    }
+    for (let i = 0; i < bondItems.length; i++) {
+      const take = parseFloat(takes[i]) || 0;
+      const rem = parseFloat(bondItems[i].remaining) || 0;
+      if (take < 0 || take > rem + 0.0001) {
+        setExbondError(`${bondItems[i].model_number || "Item"}: quantity must be no more than the remaining ${rem.toFixed(2)}.`);
+        return;
+      }
     }
     setExbondSaving(true);
     setExbondError(null);
 
     const originalQty = parseFloat(exbondModal.pi_quantity ?? "0") || 0;
-    const share = originalQty > 0 ? qty / originalQty : 0;
+    const share = originalQty > 0 ? totalTake / originalQty : 0;
 
-    const body: Record<string, string> = {
+    const items = bondItems
+      .map((it, i) => ({ model_number: it.model_number, quantity: String(parseFloat(takes[i]) || 0), rate: it.rate ?? "" }))
+      .filter((it) => parseFloat(it.quantity) > 0 && it.model_number.trim() !== "");
+
+    const body: Record<string, unknown> = {
       workflow_status: "transportation",
       bond_parent_uid: exbondModal.uid,
-      exbond_boe_no: exbondForm.exbond_boe_no.trim(),
-      exbond_quantity: String(qty),
-      pi_quantity: String(qty),
+      exbond_boe_no: exbondBoeNo.trim(),
+      exbond_quantity: String(totalTake),
+      pi_quantity: String(totalTake),
     };
+    if (items.length > 0) body.items = items;
     for (const f of COPY_AS_IS_FIELDS) {
       const v = exbondModal[f];
       if (v !== null && v !== undefined && String(v).trim() !== "") body[f] = String(v);
     }
+    // prorated fallbacks by quantity share; when items carry rates the server
+    // recomputes pi_total_value exactly from the taken items
     for (const f of PRORATE_FIELDS) {
       const raw = parseFloat((exbondModal[f] as string) ?? "");
       if (!isNaN(raw)) body[f] = String(parseFloat((raw * share).toFixed(4)));
@@ -140,7 +171,7 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     if (res.ok) {
-      const newRemaining = remaining - qty;
+      const newRemaining = computeRemaining(exbondModal) - totalTake;
       if (newRemaining <= 0.0001) {
         await apiFetch(`${API}/api/rows/${exbondModal.uid}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -148,7 +179,6 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
         });
       }
       setExbondModal(null);
-      setExbondForm({ exbond_boe_no: "", exbond_quantity: "" });
       fetchRows();
     } else {
       setExbondError("Failed to save the exbond split. Please try again.");
@@ -156,7 +186,8 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
     setExbondSaving(false);
   }
 
-  const previewRemaining = exbondModal ? computeRemaining(exbondModal) - (parseFloat(exbondForm.exbond_quantity) || 0) : 0;
+  const totalTakePreview = takes.reduce((sum, t) => sum + (parseFloat(t) || 0), 0);
+  const previewRemaining = exbondModal ? computeRemaining(exbondModal) - totalTakePreview : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
@@ -236,15 +267,36 @@ export default function BondClient({ initialRows }: { initialRows: Row[] }) {
 
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
               Exbond BOE Number
-              <input style={inputStyle} value={exbondForm.exbond_boe_no} onChange={(e) => setExbondForm({ ...exbondForm, exbond_boe_no: e.target.value })} />
+              <input style={inputStyle} value={exbondBoeNo} onChange={(e) => setExbondBoeNo(e.target.value)} />
             </label>
 
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-              Exbond Quantity
-              <input style={inputStyle} type="text" inputMode="decimal" value={exbondForm.exbond_quantity} onChange={(e) => setExbondForm({ ...exbondForm, exbond_quantity: e.target.value })} />
-            </label>
+            {/* per-model exbond quantities */}
+            <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", padding: "12px", display: "flex", flexDirection: "column", gap: "6px", background: "#fafafa" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-mono), monospace" }}>
+                Exbond Quantity (per model)
+              </span>
+              {bondItems.length === 0 ? (
+                <p style={{ margin: 0, fontSize: "12px", color: "#a1a1aa" }}>Loading…</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "6px", alignItems: "center" }}>
+                  {["Model No", "Remaining", "Take"].map((h) => (
+                    <span key={h} style={{ fontSize: "10px", fontWeight: 600, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                  ))}
+                  {bondItems.map((it, i) => (
+                    <div key={`${it.model_number}-${i}`} style={{ display: "contents" }}>
+                      <span style={{ fontSize: "12px", fontFamily: "var(--font-mono), monospace" }}>{it.model_number || "—"}</span>
+                      <span style={{ fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b" }}>{parseFloat(it.remaining).toFixed(2)}</span>
+                      <input style={{ ...inputStyle, padding: "5px 8px", fontSize: "12px" }} type="text" inputMode="decimal"
+                        placeholder="0" value={takes[i] ?? ""}
+                        onChange={(e) => setTakes((ts) => ts.map((t, j) => (j === i ? e.target.value : t)))} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div style={{ fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b", display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span>Taking now (all models): {totalTakePreview.toFixed(2)}</span>
               <span>Currently remaining: {computeRemaining(exbondModal).toFixed(2)}</span>
               <span style={{ fontWeight: 600, color: previewRemaining < 0 ? "#ef4444" : "#09090b" }}>
                 Remaining after this split: {previewRemaining.toFixed(2)}

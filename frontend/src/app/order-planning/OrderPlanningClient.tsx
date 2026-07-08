@@ -160,6 +160,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const [poPiModal, setPoPiModal] = useState<Plan | null>(null);
   const [poPiForm, setPoPiForm] = useState<PoPiForm>(emptyPoPiForm());
   const [poPiItems, setPoPiItems] = useState<PiItemDraft[]>([blankItem()]);
+  const [poPiAdvance, setPoPiAdvance] = useState({ advance_currency: "", advance_rate: "", advance_given: "" });
   const [poPiSaving, setPoPiSaving] = useState(false);
   const [selectedPoPiSupplier, setSelectedPoPiSupplier] = useState<Supplier | null>(null);
   const [poPiModels, setPoPiModels] = useState<string[]>([]);
@@ -397,6 +398,12 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
     const sendItems = nonEmptyItems(poPiItems);
     if (sendItems.length > 0) body.items = sendItems;
     if (inrTotal) body.po_total_value = inrTotal;
+    if (poPiAdvance.advance_given.trim()) {
+      body.advance_given = poPiAdvance.advance_given.trim();
+      body.advance_currency = poPiAdvance.advance_currency;
+      if (poPiAdvance.advance_rate.trim()) body.advance_rate = poPiAdvance.advance_rate.trim();
+      if (advanceInr) body.advance_inr = advanceInr;
+    }
     const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
@@ -409,6 +416,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
         setContainerInfo({ ...containerInfo, index: containerInfo.index + 1 });
       } else {
         setPoPiModal(null); setPoPiForm(emptyPoPiForm()); setPoPiItems([blankItem()]);
+        setPoPiAdvance({ advance_currency: "", advance_rate: "", advance_given: "" });
         setSelectedPoPiSupplier(null); setPoPiModels([]);
         setContainerInfo(null);
         router.push("/po-pi");
@@ -419,12 +427,24 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
 
   function closePoPiModal() {
     setPoPiModal(null); setPoPiForm(emptyPoPiForm()); setPoPiItems([blankItem()]);
+    setPoPiAdvance({ advance_currency: "", advance_rate: "", advance_given: "" });
     setSelectedPoPiSupplier(null); setPoPiModels([]);
     setContainerInfo(null);
   }
 
   const poPiTotal = itemsTotalValue(poPiItems);
   const inrTotal = calcPoTotalInr(poPiTotal, poPiForm.currency, poPiForm.exchange_rate);
+  const advanceInr = calcPoTotalInr(
+    parseFloat(poPiAdvance.advance_given) || 0, poPiAdvance.advance_currency, poPiAdvance.advance_rate
+  );
+
+  function handlePoPiAdvanceChange(field: string, value: string) {
+    setPoPiAdvance((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "advance_currency" && value === "INR") next.advance_rate = "";
+      return next;
+    });
+  }
 
   function renderPoPiField(f: string) {
     if (f === "supplier_name") return (
@@ -730,6 +750,36 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
                   <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={inrTotal} readOnly placeholder="PI total × exchange rate" />
                 </label>
               )}
+            </div>
+
+            {/* Advance — optional, any currency, converted to INR */}
+            <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px", background: "#fafafa" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-mono), monospace" }}>Advance (optional)</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Currency
+                  <select style={inputStyle} value={poPiAdvance.advance_currency} onChange={(e) => handlePoPiAdvanceChange("advance_currency", e.target.value)}>
+                    <option value="">— select —</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="INR">INR (Indian Rupee)</option>
+                    <option value="CNY">CNY (Chinese Yuan)</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Given (orig.)
+                  <input type="text" style={inputStyle} placeholder="Advance amount" value={poPiAdvance.advance_given} onChange={(e) => handlePoPiAdvanceChange("advance_given", e.target.value)} />
+                </label>
+                {poPiAdvance.advance_currency && poPiAdvance.advance_currency !== "INR" && (
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    Advance Rate (1 {poPiAdvance.advance_currency} = ? INR)
+                    <input type="text" style={inputStyle} value={poPiAdvance.advance_rate} onChange={(e) => handlePoPiAdvanceChange("advance_rate", e.target.value)} />
+                  </label>
+                )}
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance (INR) — auto
+                  <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={advanceInr} readOnly placeholder="Auto-calculated" />
+                </label>
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>

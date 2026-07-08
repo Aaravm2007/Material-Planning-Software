@@ -99,6 +99,7 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
   }
 
   useEffect(() => {
+    fetchRows();
     intervalRef.current = setInterval(fetchRows, POLL_MS);
     const onVisible = () => { if (document.visibilityState === "visible") fetchRows(); };
     document.addEventListener("visibilitychange", onVisible);

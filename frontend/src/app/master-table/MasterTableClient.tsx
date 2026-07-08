@@ -33,6 +33,10 @@ const SECTIONS = [
       { key: "tentative_exworks_at_po_time", label: "Tentative Ex-Works", date: true },
       { key: "confirmed_exworks",     label: "Confirmed Ex-Works",  date: true },
       { key: "credit_time",           label: "Credit Time (days)"  },
+      { key: "advance_currency",      label: "Advance Currency", select: ["USD","INR","CNY"] },
+      { key: "advance_rate",          label: "Advance Rate"        },
+      { key: "advance_given",         label: "Advance Given (orig.)" },
+      { key: "advance_inr",           label: "Advance (INR)"       },
     ],
   },
   {
@@ -78,7 +82,6 @@ const SECTIONS = [
     title: "Due Date",
     fields: [
       { key: "estimated_due_date",        label: "Completed Due Date",  date: true },
-      { key: "advance_given",             label: "Advance Given"                   },
       { key: "hedged",                    label: "Hedged",   select: ["Y","N"]     },
       { key: "confirmed_payment_amt",     label: "Confirmed Payment Amt"           },
       { key: "confirmed_payment_exchange",label: "Payment Exchange Rate"           },
@@ -94,7 +97,8 @@ const MONEY_KEYS = new Set([
   "provisional_boe", "customs_rate",
   "cha_charges", "other_charges", "confirmed_destination_charges",
   "transportation_inbound", "transportation_outbound_home",
-  "advance_given", "confirmed_payment_amt", "confirmed_payment_exchange",
+  "advance_rate", "advance_given", "advance_inr",
+  "confirmed_payment_amt", "confirmed_payment_exchange",
 ]);
 
 const inputStyle: React.CSSProperties = {
@@ -203,6 +207,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
   }
 
   useEffect(() => {
+    fetchRows();
     intervalRef.current = setInterval(fetchRows, POLL_MS);
     const onVisible = () => { if (document.visibilityState === "visible") fetchRows(); };
     document.addEventListener("visibilitychange", onVisible);

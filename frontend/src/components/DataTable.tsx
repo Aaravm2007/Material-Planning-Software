@@ -25,6 +25,10 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "tentative_exworks_at_po_time",  label: "Tentative Ex-Works"       },
   { key: "confirmed_exworks",             label: "Confirmed Ex-Works"       },
   { key: "credit_time",                   label: "Credit Time"              },
+  { key: "advance_currency",              label: "Advance Currency"         },
+  { key: "advance_rate",                  label: "Advance Rate"             },
+  { key: "advance_given",                 label: "Advance Given (orig.)"    },
+  { key: "advance_inr",                   label: "Advance (INR)"            },
   // Freight Planning
   { key: "etd",                           label: "ETD"                      },
   { key: "port",                          label: "Port"                     },
@@ -57,7 +61,6 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "landing_cost",                  label: "Landing Cost"             },
   // Due Date
   { key: "estimated_due_date",            label: "Completed Due Date"       },
-  { key: "advance_given",                 label: "Advance Given"            },
   { key: "hedged",                        label: "Hedged (Y/N)"             },
   { key: "confirmed_payment_amt",         label: "Confirmed Payment Amt"    },
   { key: "confirmed_payment_exchange",    label: "Payment Exchange Rate"    },
@@ -70,7 +73,8 @@ const MONO_KEYS = new Set([
   "customs_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
-  "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",
+  "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost",
+  "advance_rate", "advance_given", "advance_inr",
 ]);
 
 const YN_KEYS = new Set(["inbond", "home_consumption", "hedged"]);
@@ -81,7 +85,8 @@ const MONEY_DISPLAY_KEYS = new Set([
   "customs_rate", "provisional_boe", "actual_boe", "actual_boe_inr",
   "transportation_inbound", "transportation_outbound_home",
   "cha_charges", "other_charges", "confirmed_destination_charges", "total_transport",
-  "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost", "advance_given",
+  "confirmed_payment_amt", "confirmed_payment_exchange", "landing_cost",
+  "advance_rate", "advance_given", "advance_inr",
 ]);
 
 function fmtAmount(val: string | null, currency?: string | null): string | null {

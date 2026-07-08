@@ -31,6 +31,10 @@ export const PO_PI_COLS_BASE = [
   { key: "po_total_value",        label: "Total (INR)"      },
   { key: "confirmed_exworks",     label: "Ex-Works"         },
   { key: "credit_time",           label: "Credit Time"      },
+  { key: "advance_currency",      label: "Advance Currency" },
+  { key: "advance_rate",          label: "Advance Rate"     },
+  { key: "advance_given",         label: "Advance Given (orig.)" },
+  { key: "advance_inr",           label: "Advance (INR)"    },
 ];
 
 // Fields shown in the dialog (po_total_value computed & sent but not rendered as
@@ -109,6 +113,10 @@ export const POPI_COL_DEFS_BASE: ColDef[] = [
   { key: "po_total_value",        label: "Total (INR)",       type: "amount" },
   { key: "confirmed_exworks",     label: "Ex-Works",          type: "date"   },
   { key: "credit_time",           label: "Credit Time",       type: "amount" },
+  { key: "advance_currency",      label: "Advance Currency",  type: "select", options: ["USD","INR","CNY"] },
+  { key: "advance_rate",          label: "Advance Rate",      type: "amount" },
+  { key: "advance_given",         label: "Advance Given (orig.)", type: "amount" },
+  { key: "advance_inr",           label: "Advance (INR)",     type: "amount" },
 ];
 
 export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
@@ -125,6 +133,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [items, setItems] = useState<PiItemDraft[]>([blankItem()]);
+  const [advanceForm, setAdvanceForm] = useState({ advance_currency: "", advance_rate: "", advance_given: "" });
   const [saving, setSaving] = useState(false);
   const [newModelModal, setNewModelModal] = useState(false);
   const [newModels, setNewModels] = useState<string[]>([]);
@@ -204,6 +213,18 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const piTotal = itemsTotalValue(items);
   const inrTotal = calcPoTotalInr(piTotal, form.currency, form.exchange_rate);
 
+  const advanceInr = calcPoTotalInr(
+    parseFloat(advanceForm.advance_given) || 0, advanceForm.advance_currency, advanceForm.advance_rate
+  );
+
+  function handleAdvanceChange(field: string, value: string) {
+    setAdvanceForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "advance_currency" && value === "INR") next.advance_rate = "";
+      return next;
+    });
+  }
+
   function handleCreate() {
     const unknown = [...new Set(
       nonEmptyItems(items).map((it) => it.model_number.trim())
@@ -235,6 +256,12 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     // pi_quantity / pi_total_value / supplier_model_number are recomputed
     // server-side from items; po_total_value (INR) is client-computed
     if (inrTotal) body.po_total_value = inrTotal;
+    if (advanceForm.advance_given.trim()) {
+      body.advance_given = advanceForm.advance_given.trim();
+      body.advance_currency = advanceForm.advance_currency;
+      if (advanceForm.advance_rate.trim()) body.advance_rate = advanceForm.advance_rate.trim();
+      if (advanceInr) body.advance_inr = advanceInr;
+    }
     const res = await apiFetch(`${API}/api/rows/`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
@@ -246,6 +273,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       setNewModels([]);
       setForm(emptyForm());
       setItems([blankItem()]);
+      setAdvanceForm({ advance_currency: "", advance_rate: "", advance_given: "" });
       setSelectedSupplier(null);
       setSupplierModels([]);
     }
@@ -467,8 +495,38 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
               )}
             </div>
 
+            {/* Advance — optional, any currency, converted to INR */}
+            <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px", background: "#fafafa" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-mono), monospace" }}>Advance (optional)</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Currency
+                  <select style={inputStyle} value={advanceForm.advance_currency} onChange={(e) => handleAdvanceChange("advance_currency", e.target.value)}>
+                    <option value="">— select —</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="INR">INR (Indian Rupee)</option>
+                    <option value="CNY">CNY (Chinese Yuan)</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Given (orig.)
+                  <input type="text" style={inputStyle} placeholder="Advance amount" value={advanceForm.advance_given} onChange={(e) => handleAdvanceChange("advance_given", e.target.value)} />
+                </label>
+                {advanceForm.advance_currency && advanceForm.advance_currency !== "INR" && (
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    Advance Rate (1 {advanceForm.advance_currency} = ? INR)
+                    <input type="text" style={inputStyle} value={advanceForm.advance_rate} onChange={(e) => handleAdvanceChange("advance_rate", e.target.value)} />
+                  </label>
+                )}
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance (INR) — auto
+                  <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={advanceInr} readOnly placeholder="Auto-calculated" />
+                </label>
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm(emptyForm()); setItems([blankItem()]); setSelectedSupplier(null); setSupplierModels([]); }}>Cancel</button>
+              <button style={btnStyle("ghost")} onClick={() => { setShowModal(false); setForm(emptyForm()); setItems([blankItem()]); setAdvanceForm({ advance_currency: "", advance_rate: "", advance_given: "" }); setSelectedSupplier(null); setSupplierModels([]); }}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleCreate} disabled={saving}>{saving ? "Saving…" : "Create"}</button>
             </div>
           </div>

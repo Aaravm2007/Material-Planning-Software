@@ -2,7 +2,6 @@
 import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect, useMemo } from "react";
 import { usePolling } from "@/lib/usePolling";
-import AmountInput from "@/components/AmountInput";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
@@ -15,7 +14,7 @@ export const DUEDATE_COL_DEFS_BASE: ColDef[] = [
   { key: "po_total_value",            label: "PO Total Value",      type: "amount" },
   { key: "bl_date",                   label: "BL Date",             type: "date"   },
   { key: "credit_time",               label: "Credit Time",         type: "amount" },
-  { key: "advance_given",             label: "Advance Given",       type: "amount" },
+  { key: "advance_inr",               label: "Advance (INR)",       type: "amount" },
   { key: "hedged",                    label: "Hedged",              type: "select", options: ["Y","N"] },
   { key: "confirmed_payment_amt",     label: "Payment Amt",         type: "amount" },
   { key: "confirmed_payment_exchange",label: "Payment Exchange",    type: "amount" },
@@ -27,7 +26,6 @@ interface ContractSelection { record: HedgingRecord; amount: string; }
 
 
 const DUE_FIELDS = [
-  { key: "advance_given",              label: "Advance Given"         },
   { key: "hedged",                     label: "Hedged"                },
   { key: "confirmed_payment_amt",      label: "Confirmed Payment Amt" },
   { key: "confirmed_payment_exchange", label: "Payment Exchange Rate" },
@@ -42,13 +40,17 @@ export const DUEDATE_COLS_BASE = [
   { key: "po_total_value", label: "PO Total Value" },
   { key: "bl_date", label: "BL Date" },
   { key: "credit_time", label: "Credit Time (days)" },
+  { key: "advance_inr", label: "Advance (INR)" },
   ...DUE_FIELDS,
   { key: "_est_due_calc", label: "Completed Due Date" },
 ];
 
-function calcPaymentAmt(form: Record<string, string>, row: Row): string {
+// Advance is entered at PO/PI and carried through read-only from here on;
+// the payment calc always uses the INR-converted value regardless of the
+// advance's original currency.
+function calcPaymentAmt(row: Row): string {
   const total = parseFloat(String(row.po_total_value ?? "0")) || 0;
-  const advance = parseFloat(form.advance_given || "0") || 0;
+  const advance = parseFloat(String(row.advance_inr ?? "0")) || 0;
   const result = total - advance;
   return result > 0 ? String(result) : total > 0 ? String(total) : "";
 }
@@ -126,7 +128,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
   function openEdit(row: Row) {
     const form: Record<string, string> = {};
     DUE_FIELDS.forEach(({ key }) => { form[key] = String(row[key] ?? ""); });
-    form.confirmed_payment_amt = calcPaymentAmt(form, row);
+    form.confirmed_payment_amt = calcPaymentAmt(row);
     setEditForm(form);
     setEditModal(row);
     setContractSelections([]);
@@ -136,9 +138,6 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
 
   function handleEditChange(key: string, value: string) {
     const next = { ...editForm, [key]: value };
-    if (key === "advance_given" && editModal) {
-      next.confirmed_payment_amt = calcPaymentAmt(next, editModal);
-    }
     if (key === "hedged") {
       if (value === "Y") {
         setContractSelections([]);
@@ -267,7 +266,7 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
                     );
                   }
                   const v = String(row[col.key] ?? "");
-                  const mono = col.key.includes("amt") || col.key.includes("exchange") || col.key === "credit_time" || col.key === "bl_date" || col.key === "po_total_value";
+                  const mono = col.key.includes("amt") || col.key.includes("exchange") || col.key === "credit_time" || col.key === "bl_date" || col.key === "po_total_value" || col.key === "advance_inr";
                   return <td key={col.key} style={{ ...TD, fontFamily: mono ? "var(--font-mono), monospace" : undefined }}>{v || <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
                 })}
                 <td style={{ ...TD, textAlign: "right" }}>
@@ -291,11 +290,25 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "520px", maxHeight: "85vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>Edit Due Date Fields</h2>
 
-            {/* Advance Given */}
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-              Advance Given
-              <AmountInput style={inputStyle} placeholder="Advance Given" value={editForm.advance_given ?? ""} onChange={(raw) => handleEditChange("advance_given", raw)} />
-            </label>
+            {/* Advance — entered at PO/PI, read-only reference here */}
+            <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", padding: "12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#fafafa" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Advance Currency
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={String(editModal?.advance_currency ?? "—")} readOnly />
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Advance Rate
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={String(editModal?.advance_rate ?? "—")} readOnly />
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Advance Given (orig.)
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={String(editModal?.advance_given ?? "—")} readOnly />
+              </label>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                Advance (INR)
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={String(editModal?.advance_inr ?? "—")} readOnly />
+              </label>
+            </div>
 
             {/* Confirmed Payment Amt — auto */}
             <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>

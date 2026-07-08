@@ -31,6 +31,10 @@ class MaterialRow(Base):
     credit_time = Column(String, nullable=True)
     currency = Column(String, nullable=True)
     exchange_rate = Column(String, nullable=True)
+    advance_given = Column(String, nullable=True)         # original amount, in advance_currency
+    advance_currency = Column(String, nullable=True)      # USD / INR / CNY
+    advance_rate = Column(String, nullable=True)          # exchange rate, blank if INR
+    advance_inr = Column(String, nullable=True)           # computed: advance_given x advance_rate (or = advance_given if INR)
 
     # Import Planning stage
     etd = Column(String, nullable=True)
@@ -75,7 +79,6 @@ class MaterialRow(Base):
     hedged = Column(String, nullable=True)
     confirmed_payment_amt = Column(String, nullable=True)
     confirmed_payment_exchange = Column(String, nullable=True)
-    advance_given = Column(String, nullable=True)
     fields_entered = Column(Boolean, default=False)
     modified_by = Column(String, nullable=True)
     modified_at = Column(String, nullable=True)

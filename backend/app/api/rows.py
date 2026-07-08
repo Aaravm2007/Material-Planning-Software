@@ -20,6 +20,7 @@ PO_PI_FIELDS = [
     "pi_date", "supplier_model_number", "pi_quantity", "pi_rate", "pi_total_value",
     "tentative_exworks_at_po_time", "confirmed_exworks", "credit_time",
     "currency", "exchange_rate",
+    "advance_given", "advance_currency", "advance_rate", "advance_inr",
 ]
 
 IMPORT_FIELDS = [
@@ -40,7 +41,7 @@ TRANSPORT_FIELDS = [
 
 DUE_DATE_FIELDS = [
     "estimated_due_date", "confirmed_due_date", "hedged",
-    "confirmed_payment_amt", "confirmed_payment_exchange", "advance_given",
+    "confirmed_payment_amt", "confirmed_payment_exchange",
 ]
 
 ALL_FIELDS = PO_PI_FIELDS + IMPORT_FIELDS + BOE_FIELDS + BOND_FIELDS + TRANSPORT_FIELDS + DUE_DATE_FIELDS
@@ -52,6 +53,7 @@ EXPORT_FIELDS = [
     "supplier_model_number", "pi_quantity", "pi_rate", "currency", "exchange_rate",
     "pi_total_value", "po_total_value", "tentative_exworks_at_po_time",
     "confirmed_exworks", "credit_time",
+    "advance_given", "advance_currency", "advance_rate", "advance_inr",
     "etd", "port", "shipment_status", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date",
     "insurance", "estimated_eta", "confirmed_eta", "inbond", "home_consumption",
@@ -60,7 +62,7 @@ EXPORT_FIELDS = [
     "sap_inward_no", "cha_name", "cha_charges", "other_charges",
     "confirmed_destination_charges", "transportation_inbound",
     "transportation_outbound_home", "landing_cost",
-    "estimated_due_date", "advance_given", "hedged",
+    "estimated_due_date", "hedged",
     "confirmed_payment_amt", "confirmed_payment_exchange",
 ]
 CSV_HEADERS = ["workflow_status"] + EXPORT_FIELDS
@@ -71,7 +73,7 @@ def _detect_stage(row: dict) -> str:
     if row.get("workflow_status"):
         return row["workflow_status"]
     v = row.get
-    if any([v("advance_given"), v("hedged"), v("confirmed_payment_amt"), v("confirmed_payment_exchange")]):
+    if any([v("hedged"), v("confirmed_payment_amt"), v("confirmed_payment_exchange")]):
         return "due_date"
     if any([v("sap_inward_no"), v("transportation_inbound"), v("cha_name")]):
         return "transportation"
@@ -319,6 +321,10 @@ class CreateRowBody(BaseModel):
     credit_time: Optional[str] = None
     currency: Optional[str] = None
     exchange_rate: Optional[str] = None
+    advance_given: Optional[str] = None
+    advance_currency: Optional[str] = None
+    advance_rate: Optional[str] = None
+    advance_inr: Optional[str] = None
     order_plan_id: Optional[int] = None
     boe_no: Optional[str] = None
     actual_boe: Optional[str] = None
@@ -385,6 +391,9 @@ class PatchRowBody(BaseModel):
     confirmed_payment_amt: Optional[str] = None
     confirmed_payment_exchange: Optional[str] = None
     advance_given: Optional[str] = None
+    advance_currency: Optional[str] = None
+    advance_rate: Optional[str] = None
+    advance_inr: Optional[str] = None
     items: Optional[list[ItemBody]] = None
 
 

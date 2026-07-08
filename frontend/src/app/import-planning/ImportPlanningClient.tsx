@@ -312,16 +312,6 @@ export default function ImportPlanningClient({
     }
   }
 
-  async function handleSkipWarehousing() {
-    if (!warehousingRow) return;
-    await apiFetch(`${API}/api/rows/${warehousingRow.uid}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workflow_status: "boe" }),
-    });
-    setApproved((a) => a.filter((r) => r.uid !== warehousingRow.uid));
-    setWarehousingRow(null);
-  }
-
   async function handleBackToPoPi(uid: string) {
     const res = await apiFetch(`${API}/api/rows/${uid}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -778,10 +768,10 @@ export default function ImportPlanningClient({
       {/* Warehousing Modal */}
       {warehousingRow && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onKeyDown={(e) => { if (e.key === "Enter") warehousingChoice ? handleWarehousing() : handleSkipWarehousing(); }}>
+          onKeyDown={(e) => { if (e.key === "Enter" && warehousingChoice) handleWarehousing(); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "380px", display: "flex", flexDirection: "column", gap: "16px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>Warehousing Plan</h2>
-            <p style={{ margin: 0, fontSize: "13px", color: "#71717a", fontFamily: "var(--font-sans), sans-serif" }}>Select a warehousing option (optional) before moving to BOE.</p>
+            <p style={{ margin: 0, fontSize: "13px", color: "#71717a", fontFamily: "var(--font-sans), sans-serif" }}>Select a warehousing option before moving to BOE.</p>
             {[{ value: "inbond", label: "Inbond" }, { value: "home_consumption", label: "Home Consumption" }].map((opt) => (
               <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", cursor: "pointer", fontFamily: "var(--font-sans), sans-serif", color: "#09090b" }}>
                 <input type="radio" name="warehousing" value={opt.value} checked={warehousingChoice === opt.value} onChange={() => setWarehousingChoice(opt.value as "inbond" | "home_consumption")} />
@@ -790,7 +780,6 @@ export default function ImportPlanningClient({
             ))}
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setWarehousingRow(null)}>Cancel</button>
-              <button style={btnStyle("ghost")} onClick={handleSkipWarehousing}>Skip → BOE</button>
               <button style={btnStyle("primary")} onClick={handleWarehousing} disabled={!warehousingChoice}>Confirm → BOE</button>
             </div>
           </div>

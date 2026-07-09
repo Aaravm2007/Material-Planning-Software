@@ -109,7 +109,7 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
     };
   }, []);
 
-  // Active = not complete (filteredRows already apply any user filters)
+  // Exclude complete rows (filteredRows already apply any user filters)
   const filtered = (filteredRows as Row[]).filter((r) => r.workflow_status !== "complete");
 
   return (

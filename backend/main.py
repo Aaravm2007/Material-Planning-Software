@@ -104,6 +104,8 @@ async def _run_migrations():
         "ALTER TABLE material_rows ADD COLUMN advance_currency VARCHAR",
         "ALTER TABLE material_rows ADD COLUMN advance_rate VARCHAR",
         "ALTER TABLE material_rows ADD COLUMN advance_inr VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN estimated_etd VARCHAR",
+        "ALTER TABLE material_rows ADD COLUMN allocated_month VARCHAR",
     ]
     async with engine.begin() as conn:
         for sql in migrations:

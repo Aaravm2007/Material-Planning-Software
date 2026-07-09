@@ -35,6 +35,9 @@ export const PO_PI_COLS_BASE = [
   { key: "advance_rate",          label: "Advance Rate"     },
   { key: "advance_given",         label: "Advance Given (orig.)" },
   { key: "advance_inr",           label: "Advance (INR)"    },
+  { key: "estimated_etd",         label: "Estimated ETD"    },
+  { key: "estimated_eta",         label: "Estimated ETA"    },
+  { key: "allocated_month",       label: "Allocated Month"  },
 ];
 
 // Fields shown in the dialog (po_total_value computed & sent but not rendered as
@@ -45,7 +48,8 @@ const DIALOG_FIELDS = [
   "pi_number", "date_of_po",
   "pi_date", "currency",
   "exchange_rate", "confirmed_exworks",
-  "credit_time",
+  "credit_time", "estimated_etd",
+  "estimated_eta", "allocated_month",
 ] as const;
 
 // Fields actually shown in the "Enter/Edit Fields" dialog (openEdit) -- a subset
@@ -54,7 +58,8 @@ const DIALOG_FIELDS = [
 // checked against the items list instead.
 const EDIT_FIELDS = ["pi_number", "pi_date", "currency", "exchange_rate", "confirmed_exworks", "credit_time"] as const;
 
-const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks"]);
+const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks", "estimated_etd", "estimated_eta"]);
+const MONTH_FIELDS = new Set(["allocated_month"]);
 
 const LABELS: Record<string, string> = {
   supplier_name: "Supplier Name", supplier_code: "Supplier Code",
@@ -64,6 +69,8 @@ const LABELS: Record<string, string> = {
   pi_quantity: "PI Quantity", pi_rate: "PI Rate",
   currency: "Currency", exchange_rate: "Exchange Rate",
   confirmed_exworks: "Ex-Works", credit_time: "Credit Time (days)",
+  estimated_etd: "Estimated ETD", estimated_eta: "Estimated ETA",
+  allocated_month: "Allocated Month",
 };
 
 type FormState = Record<string, string>;
@@ -117,6 +124,9 @@ export const POPI_COL_DEFS_BASE: ColDef[] = [
   { key: "advance_rate",          label: "Advance Rate",      type: "amount" },
   { key: "advance_given",         label: "Advance Given (orig.)", type: "amount" },
   { key: "advance_inr",           label: "Advance (INR)",     type: "amount" },
+  { key: "estimated_etd",         label: "Estimated ETD",     type: "date"   },
+  { key: "estimated_eta",         label: "Estimated ETA",     type: "date"   },
+  { key: "allocated_month",       label: "Allocated Month",   type: "text"   },
 ];
 
 export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
@@ -389,7 +399,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       return <input type="number" min="0" step="1" style={inputStyle} placeholder="Number of days" value={form[f]} onChange={(e) => handleFieldChange(f, e.target.value)} />;
     }
     return (
-      <input type={DATE_FIELDS.has(f) ? "date" : "text"} style={inputStyle}
+      <input type={DATE_FIELDS.has(f) ? "date" : MONTH_FIELDS.has(f) ? "month" : "text"} style={inputStyle}
         placeholder={LABELS[f]} value={form[f]}
         onChange={(e) => handleFieldChange(f, e.target.value)} />
     );

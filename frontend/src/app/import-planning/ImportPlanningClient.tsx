@@ -15,6 +15,8 @@ export const PENDING_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_code",    label: "Supp. Code",    type: "text" },
   { key: "pi_number",        label: "PI Number",     type: "text" },
   { key: "rocket_item_code", label: "Item Code",     type: "text" },
+  { key: "estimated_etd",    label: "Estimated ETD", type: "date" },
+  { key: "estimated_eta",    label: "Estimated ETA", type: "date" },
 ];
 
 export const APPROVED_COL_DEFS_BASE: ColDef[] = [
@@ -22,7 +24,8 @@ export const APPROVED_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",                label: "Supplier",        type: "text"   },
   { key: "supplier_code",                label: "Supp. Code",      type: "text"   },
   { key: "pi_number",                    label: "PI Number",       type: "text"   },
-  { key: "etd",                          label: "ETD",             type: "date"   },
+  { key: "estimated_etd",                label: "Estimated ETD",   type: "date"   },
+  { key: "etd",                          label: "Confirmed ETD",   type: "date"   },
   { key: "port",                         label: "Port",            type: "text"   },
   { key: "shipping_company",             label: "Shipping Co.",    type: "text"   },
   { key: "freight_charges",              label: "Freight",         type: "amount" },
@@ -39,7 +42,8 @@ export const APPROVED_COLS_BASE = [
   { key: "supplier_name", label: "Supplier" },
   { key: "supplier_code", label: "Supp. Code" },
   { key: "pi_number", label: "PI Number" },
-  { key: "etd", label: "ETD" },
+  { key: "estimated_etd", label: "Estimated ETD" },
+  { key: "etd", label: "Confirmed ETD" },
   { key: "port", label: "Port" },
   { key: "shipping_company", label: "Shipping Co." },
   { key: "estimated_destination_charges", label: "Dest. Charges" },
@@ -132,7 +136,7 @@ export default function ImportPlanningClient({
 
   // Approved edit modal state
   const [editRow, setEditRow] = useState<Row | null>(null);
-  const [editForm, setEditForm] = useState({ estimated_destination_charges: "", bl_no: "", bl_date: "", insurance: "", confirmed_eta: "", port: "" });
+  const [editForm, setEditForm] = useState({ estimated_destination_charges: "", bl_no: "", bl_date: "", insurance: "", port: "" });
   const [editSaving, setEditSaving] = useState(false);
 
   async function fetchRows() {
@@ -267,7 +271,7 @@ export default function ImportPlanningClient({
           port: opt?.port ?? moved.port,
           freight_charges: freightInr ?? moved.freight_charges,
           shipping_company: opt?.shipping_line ?? moved.shipping_company,
-          estimated_eta: opt?.eta ?? moved.estimated_eta,
+          confirmed_eta: opt?.eta ?? moved.confirmed_eta,
         };
         setPending((p) => p.filter((r) => r.uid !== dialogRow.uid));
         setApproved((a) => [updatedRow, ...a.filter((r) => r.uid !== dialogRow.uid)]);
@@ -338,7 +342,6 @@ export default function ImportPlanningClient({
       bl_no: (row.bl_no as string) ?? "",
       bl_date: (row.bl_date as string) ?? "",
       insurance: (row.insurance as string) ?? "",
-      confirmed_eta: (row.confirmed_eta as string) ?? "",
       port: (row.port as string) ?? "",
     });
     if (ports.length === 0) {
@@ -381,7 +384,7 @@ export default function ImportPlanningClient({
       <div style={{ flexShrink: 0, border: "1px solid #e4e4e7", borderRadius: "12px", padding: "16px 24px", background: "#fafafa", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h1 style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: "22px", fontWeight: 400, color: "#09090b", margin: 0 }}>Freight Planning</h1>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <button style={btnStyle("ghost")} onClick={() => exportToExcel([...pendingFilter.filteredRows, ...approvedFilter.filteredRows] as Record<string, unknown>[], "import-planning", { supplier_name: "Supplier", supplier_code: "Supp. Code", pi_number: "PI Number", rocket_item_code: "Item Code", shipment_status: "Status", etd: "ETD", port: "Port", shipping_company: "Shipping Co.", bl_no: "BL No", bl_date: "BL Date", workflow_status: "Stage" })}>↓ Export</button>
+          <button style={btnStyle("ghost")} onClick={() => exportToExcel([...pendingFilter.filteredRows, ...approvedFilter.filteredRows] as Record<string, unknown>[], "import-planning", { supplier_name: "Supplier", supplier_code: "Supp. Code", pi_number: "PI Number", rocket_item_code: "Item Code", shipment_status: "Status", estimated_etd: "Estimated ETD", etd: "Confirmed ETD", port: "Port", shipping_company: "Shipping Co.", bl_no: "BL No", bl_date: "BL Date", workflow_status: "Stage" })}>↓ Export</button>
           <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", textTransform: "uppercase" }}>
             Role: <strong style={{ color: role === "expert" ? "#09090b" : "#71717a" }}>{role}</strong>
           </span>
@@ -425,7 +428,7 @@ export default function ImportPlanningClient({
               </thead>
               <tbody>
                 {pendingFilter.filteredRows.length === 0 ? (
-                  <tr><td colSpan={5} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "40px" }}>{pending.length === 0 ? "No pending rows" : "No results match filters"}</td></tr>
+                  <tr><td colSpan={7} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "40px" }}>{pending.length === 0 ? "No pending rows" : "No results match filters"}</td></tr>
                 ) : (pendingFilter.filteredRows as Row[]).map((row) => (
                   <tr key={row.uid} style={{ cursor: "pointer" }}
                     onDoubleClick={() => openDialog(row)}
@@ -734,7 +737,6 @@ export default function ImportPlanningClient({
               { key: "bl_no",                         label: "BL No",                type: "text" },
               { key: "bl_date",                       label: "BL Date",              type: "date" },
               { key: "insurance",                     label: "Insurance",            type: "text" },
-              { key: "confirmed_eta",                 label: "Confirmed ETA",        type: "date" },
               { key: "port",                          label: "Port",                 type: "port" },
             ].map((f) => (
               <label key={f.key} style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>

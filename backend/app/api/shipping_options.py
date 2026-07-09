@@ -146,7 +146,7 @@ async def select_shipping_option(option_id: int, db: AsyncSession = Depends(get_
     row.port = opt.port
     row.freight_charges = freight_inr
     row.shipping_company = opt.shipping_line
-    row.estimated_eta = opt.eta
+    row.confirmed_eta = opt.eta
     row.workflow_status = "approved_import"
 
     # Mark this option as the one selected for the row (and unselect any others

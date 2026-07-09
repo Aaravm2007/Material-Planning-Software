@@ -10,7 +10,9 @@ from app.deps import require_expert
 
 router = APIRouter(prefix="/api/allotments", tags=["allotments"])
 
-ELIGIBLE_STATUSES = ("due_date", "complete")
+ELIGIBLE_STATUSES = (
+    "pending_import", "approved_import", "boe", "bond", "transportation", "due_date", "complete",
+)
 
 
 def _safe_float(val):
@@ -22,7 +24,7 @@ def _safe_float(val):
 
 @router.get("/stage")
 async def get_stage_rows(db: AsyncSession = Depends(get_db)):
-    """Allotment candidates: rows past Transportation, flattened to one entry
+    """Allotment candidates: rows that have left PO/PI, flattened to one entry
     per (row, model) with its own balance. Rows without items yield a single
     entry with model_number null (legacy single-product behavior)."""
     result = await db.execute(
@@ -60,6 +62,7 @@ async def get_stage_rows(db: AsyncSession = Depends(get_db)):
             "estimated_eta": r.estimated_eta,
             "confirmed_eta": r.confirmed_eta,
             "landing_cost": r.landing_cost,
+            "allocated_month": r.allocated_month,
         }
         items = items_by_uid.get(r.uid, [])
         if items:

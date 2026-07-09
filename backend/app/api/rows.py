@@ -21,12 +21,13 @@ PO_PI_FIELDS = [
     "tentative_exworks_at_po_time", "confirmed_exworks", "credit_time",
     "currency", "exchange_rate",
     "advance_given", "advance_currency", "advance_rate", "advance_inr",
+    "estimated_etd", "estimated_eta", "allocated_month",
 ]
 
 IMPORT_FIELDS = [
     "etd", "port", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date", "insurance",
-    "estimated_eta", "confirmed_eta", "inbond", "home_consumption", "shipment_status",
+    "confirmed_eta", "inbond", "home_consumption", "shipment_status",
 ]
 
 BOE_FIELDS = ["boe_no", "provisional_boe", "actual_boe", "customs_rate"]
@@ -54,9 +55,10 @@ EXPORT_FIELDS = [
     "pi_total_value", "po_total_value", "tentative_exworks_at_po_time",
     "confirmed_exworks", "credit_time",
     "advance_given", "advance_currency", "advance_rate", "advance_inr",
+    "estimated_etd", "estimated_eta", "allocated_month",
     "etd", "port", "shipment_status", "shipping_company",
     "estimated_destination_charges", "freight_charges", "bl_no", "bl_date",
-    "insurance", "estimated_eta", "confirmed_eta", "inbond", "home_consumption",
+    "insurance", "confirmed_eta", "inbond", "home_consumption",
     "boe_no", "provisional_boe", "actual_boe", "customs_rate",
     "bond_parent_uid", "exbond_boe_no", "exbond_quantity",
     "sap_inward_no", "cha_name", "cha_charges", "other_charges",
@@ -325,6 +327,9 @@ class CreateRowBody(BaseModel):
     advance_currency: Optional[str] = None
     advance_rate: Optional[str] = None
     advance_inr: Optional[str] = None
+    estimated_etd: Optional[str] = None
+    estimated_eta: Optional[str] = None
+    allocated_month: Optional[str] = None
     order_plan_id: Optional[int] = None
     boe_no: Optional[str] = None
     actual_boe: Optional[str] = None
@@ -357,6 +362,8 @@ class PatchRowBody(BaseModel):
     credit_time: Optional[str] = None
     currency: Optional[str] = None
     exchange_rate: Optional[str] = None
+    estimated_etd: Optional[str] = None
+    allocated_month: Optional[str] = None
     etd: Optional[str] = None
     port: Optional[str] = None
     shipping_company: Optional[str] = None

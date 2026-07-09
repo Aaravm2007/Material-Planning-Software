@@ -34,7 +34,8 @@ const PO_PI_DIALOG_FIELDS = [
   "pi_number", "date_of_po",
   "pi_date", "currency",
   "exchange_rate", "confirmed_exworks",
-  "credit_time",
+  "credit_time", "estimated_etd",
+  "estimated_eta", "allocated_month",
 ] as const;
 
 const PO_PI_LABELS: Record<string, string> = {
@@ -45,9 +46,12 @@ const PO_PI_LABELS: Record<string, string> = {
   pi_quantity: "PI Quantity", pi_rate: "PI Rate",
   currency: "Currency", exchange_rate: "Exchange Rate",
   confirmed_exworks: "Ex-Works", credit_time: "Credit Time (days)",
+  estimated_etd: "Estimated ETD", estimated_eta: "Estimated ETA",
+  allocated_month: "Allocated Month",
 };
 
-const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks"]);
+const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks", "estimated_etd", "estimated_eta"]);
+const MONTH_FIELDS = new Set(["allocated_month"]);
 
 type PoPiForm = Record<string, string>;
 
@@ -479,7 +483,7 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
         value={poPiForm[f]} onChange={(e) => handlePoPiFieldChange(f, e.target.value)} />
     );
     return (
-      <input type={DATE_FIELDS.has(f) ? "date" : "text"} style={inputStyle}
+      <input type={DATE_FIELDS.has(f) ? "date" : MONTH_FIELDS.has(f) ? "month" : "text"} style={inputStyle}
         placeholder={PO_PI_LABELS[f]} value={poPiForm[f]}
         onChange={(e) => handlePoPiFieldChange(f, e.target.value)} />
     );

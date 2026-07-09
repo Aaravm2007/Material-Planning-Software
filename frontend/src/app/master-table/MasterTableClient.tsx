@@ -37,13 +37,16 @@ const SECTIONS = [
       { key: "advance_rate",          label: "Advance Rate"        },
       { key: "advance_given",         label: "Advance Given (orig.)" },
       { key: "advance_inr",           label: "Advance (INR)"       },
+      { key: "estimated_etd",         label: "Estimated ETD",   date: true },
+      { key: "estimated_eta",         label: "Estimated ETA",   date: true },
+      { key: "allocated_month",       label: "Allocated Month", month: true },
     ],
   },
   {
     title: "Import Planning",
     fields: [
       { key: "shipment_status",               label: "Shipment Status", select: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"] },
-      { key: "etd",                           label: "ETD",                   date: true },
+      { key: "etd",                           label: "Confirmed ETD",         date: true },
       { key: "port",                          label: "Port"                              },
       { key: "shipping_company",              label: "Shipping Company"                  },
       { key: "estimated_destination_charges", label: "Est. Destination Charges"          },
@@ -51,7 +54,6 @@ const SECTIONS = [
       { key: "bl_no",                         label: "BL No"                             },
       { key: "bl_date",                       label: "BL Date",               date: true },
       { key: "insurance",                     label: "Insurance"                         },
-      { key: "estimated_eta",                 label: "Estimated ETA",         date: true },
       { key: "confirmed_eta",                 label: "Confirmed ETA",         date: true },
       { key: "inbond",                        label: "Inbond",     select: ["Y","N"]     },
       { key: "home_consumption",              label: "Home Consumption", select: ["Y","N"] },
@@ -89,7 +91,7 @@ const SECTIONS = [
   },
 ] as const;
 
-type FieldDef = { key: string; label: string; date?: boolean; select?: readonly string[] };
+type FieldDef = { key: string; label: string; date?: boolean; month?: boolean; select?: readonly string[] };
 
 const MONEY_KEYS = new Set([
   "pi_rate", "pi_total_value", "exchange_rate", "po_total_value",
@@ -107,7 +109,7 @@ const inputStyle: React.CSSProperties = {
   background: "#fafafa", color: "#09090b",
 };
 
-const DATE_KEYS = new Set(["date_of_po","pi_date","tentative_exworks_at_po_time","confirmed_exworks","etd","bl_date","estimated_eta","confirmed_eta","estimated_due_date"]);
+const DATE_KEYS = new Set(["date_of_po","pi_date","tentative_exworks_at_po_time","confirmed_exworks","etd","bl_date","estimated_etd","estimated_eta","confirmed_eta","estimated_due_date"]);
 const SELECT_KEYS: Record<string, string[]> = {
   workflow_status: ["po_pi","pending_import","approved_import","boe","transportation","due_date","complete"],
   currency:        ["USD","INR","CNY"],
@@ -325,6 +327,12 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     if (f.date) {
       return (
         <input type="date" style={inputStyle} value={editForm[f.key] ?? ""}
+          onChange={(e) => setEditForm((fm) => ({ ...fm, [f.key]: e.target.value }))} />
+      );
+    }
+    if (f.month) {
+      return (
+        <input type="month" style={inputStyle} value={editForm[f.key] ?? ""}
           onChange={(e) => setEditForm((fm) => ({ ...fm, [f.key]: e.target.value }))} />
       );
     }

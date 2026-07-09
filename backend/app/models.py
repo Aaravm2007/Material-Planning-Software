@@ -35,9 +35,12 @@ class MaterialRow(Base):
     advance_currency = Column(String, nullable=True)      # USD / INR / CNY
     advance_rate = Column(String, nullable=True)          # exchange rate, blank if INR
     advance_inr = Column(String, nullable=True)           # computed: advance_given x advance_rate (or = advance_given if INR)
+    estimated_etd = Column(String, nullable=True)         # planner's upfront estimate, entered at PO/PI
+    estimated_eta = Column(String, nullable=True)         # planner's upfront estimate, entered at PO/PI
+    allocated_month = Column(String, nullable=True)       # YYYY-MM, which month this PI is allocated to
 
     # Import Planning stage
-    etd = Column(String, nullable=True)
+    etd = Column(String, nullable=True)                   # confirmed ETD — set from the selected freight option
     port = Column(String, nullable=True)
     shipping_company = Column(String, nullable=True)
     estimated_destination_charges = Column(String, nullable=True)
@@ -45,8 +48,7 @@ class MaterialRow(Base):
     bl_no = Column(String, nullable=True)
     bl_date = Column(String, nullable=True)
     insurance = Column(String, nullable=True)
-    estimated_eta = Column(String, nullable=True)
-    confirmed_eta = Column(String, nullable=True)
+    confirmed_eta = Column(String, nullable=True)         # set from the selected freight option
     inbond = Column(String, nullable=True)
     home_consumption = Column(String, nullable=True)
     shipment_status = Column(String, nullable=True)

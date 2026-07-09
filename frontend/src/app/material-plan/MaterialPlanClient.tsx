@@ -10,6 +10,7 @@ import { useTableState, ColDef } from "@/components/useTableState";
 const MATPLAN_COL_DEFS: ColDef[] = [
   { key: "workflow_status", label: "Stage",           type: "select", options: ["po_pi","pending_import","approved_import","boe","transportation","due_date","complete"] },
   { key: "shipment_status", label: "Shipment Status", type: "select", options: ["Pre-Shipment","Shipped","At Destination Port","Under Customs Clearance","Customs Cleared","In Transit to Warehouse","Received"] },
+  { key: "allocated_month", label: "Allocated Month", type: "text"   },
   { key: "supplier_name",   label: "Supplier",        type: "text"   },
   { key: "pi_number",       label: "PI Number",       type: "text"   },
   { key: "pi_date",         label: "PI Date",         type: "date"   },
@@ -25,6 +26,7 @@ interface Row {
   uid: string;
   workflow_status: string | null;
   shipment_status: string | null;
+  allocated_month: string | null;
   supplier_name: string | null;
   pi_number: string | null;
   pi_date: string | null;
@@ -150,6 +152,7 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
                 { key: "workflow_status", label: "Stage" },
 
                 { key: "shipment_status", label: "Shipment Status" },
+                { key: "allocated_month", label: "Allocated Month" },
                 { key: "supplier_name",   label: "Supplier" },
                 { key: "pi_number",       label: "PI Number" },
                 { key: "pi_date",         label: "PI Date" },
@@ -176,7 +179,7 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={11} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "60px" }}>
+                <td colSpan={12} style={{ ...TD, textAlign: "center", color: "#d4d4d8", padding: "60px" }}>
                   {"No active shipments"}
                 </td>
               </tr>
@@ -219,6 +222,9 @@ export default function MaterialPlanClient({ initialRows }: { initialRows: Row[]
                         </span>
                       );
                     })()}
+                  </td>
+                  <td style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>
+                    {row.allocated_month ?? <span style={{ color: "#d4d4d8" }}>—</span>}
                   </td>
                   <td style={TD}>{row.supplier_name ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>
                   <td style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600 }}>

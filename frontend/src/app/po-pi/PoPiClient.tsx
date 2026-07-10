@@ -52,10 +52,9 @@ const DIALOG_FIELDS = [
   "estimated_eta", "allocated_month",
 ] as const;
 
-// Fields actually shown in the "Enter/Edit Fields" dialog (openEdit) -- a subset
-// of DIALOG_FIELDS, since supplier/PO identity fields are set once at row
-// creation and aren't part of this dialog. Quantity/rate completeness is
-// checked against the items list instead.
+// The subset of DIALOG_FIELDS required for a row to count as "fields entered"
+// (the Enter/Edit Fields dialog itself now shows every DIALOG_FIELDS field).
+// Quantity/rate completeness is checked against the items list instead.
 const EDIT_FIELDS = ["pi_number", "pi_date", "currency", "exchange_rate", "confirmed_exworks", "credit_time"] as const;
 
 const DATE_FIELDS = new Set(["date_of_po", "pi_date", "confirmed_exworks", "estimated_etd", "estimated_eta"]);
@@ -148,8 +147,11 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   const [newModelModal, setNewModelModal] = useState(false);
   const [newModels, setNewModels] = useState<string[]>([]);
   const [editModal, setEditModal] = useState<Row | null>(null);
-  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editForm, setEditForm] = useState<FormState>(emptyForm());
   const [editItems, setEditItems] = useState<PiItemDraft[]>([blankItem()]);
+  const [editSelectedSupplier, setEditSelectedSupplier] = useState<Supplier | null>(null);
+  const [editSupplierModels, setEditSupplierModels] = useState<string[]>([]);
+  const [editAdvanceForm, setEditAdvanceForm] = useState({ advance_currency: "", advance_rate: "", advance_given: "" });
   const [importing, setImporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -193,12 +195,16 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     if (importRef.current) importRef.current.value = "";
   }
 
-  async function fetchModels(supplier: Supplier) {
+  async function fetchModelsInto(supplier: Supplier, setter: (models: string[]) => void) {
     try {
       const res = await apiFetch(`${API}/api/suppliers/${supplier.id}/models`);
       const data = res.ok ? await res.json() : [];
-      setSupplierModels(Array.isArray(data) ? data.map((m: { model_number: string }) => m.model_number) : []);
-    } catch { setSupplierModels([]); }
+      setter(Array.isArray(data) ? data.map((m: { model_number: string }) => m.model_number) : []);
+    } catch { setter([]); }
+  }
+
+  function fetchModels(supplier: Supplier) {
+    return fetchModelsInto(supplier, setSupplierModels);
   }
 
   function handleSupplierChange(name: string) {
@@ -209,10 +215,28 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     setItems((its) => its.map((it) => ({ ...it, model_number: "" })));
   }
 
+  function handleEditSupplierChange(name: string) {
+    const match = suppliers.find((s) => s.supplier_name === name) ?? null;
+    setEditSelectedSupplier(match);
+    if (match) fetchModelsInto(match, setEditSupplierModels); else setEditSupplierModels([]);
+    setEditForm((f) => ({ ...f, supplier_name: name, supplier_code: match ? match.supplier_code : f.supplier_code }));
+    setEditItems((its) => its.map((it) => ({ ...it, model_number: "" })));
+  }
+
   function handleFieldChange(field: string, value: string) {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
       // exchange rate not needed for INR
+      if (field === "currency" && value === "INR") {
+        next.exchange_rate = "";
+      }
+      return next;
+    });
+  }
+
+  function handleEditFieldChange(field: string, value: string) {
+    setEditForm((prev) => {
+      const next = { ...prev, [field]: value };
       if (field === "currency" && value === "INR") {
         next.exchange_rate = "";
       }
@@ -227,6 +251,13 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     parseFloat(advanceForm.advance_given) || 0, advanceForm.advance_currency, advanceForm.advance_rate
   );
 
+  const editPiTotal = itemsTotalValue(editItems);
+  const editInrTotal = calcPoTotalInr(editPiTotal, editForm.currency, editForm.exchange_rate);
+
+  const editAdvanceInr = calcPoTotalInr(
+    parseFloat(editAdvanceForm.advance_given) || 0, editAdvanceForm.advance_currency, editAdvanceForm.advance_rate
+  );
+
   function handleAdvanceChange(field: string, value: string) {
     setAdvanceForm((prev) => {
       const next = { ...prev, [field]: value };
@@ -235,11 +266,23 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     });
   }
 
-  function handleCreate() {
-    const unknown = [...new Set(
-      nonEmptyItems(items).map((it) => it.model_number.trim())
-        .filter((m) => !supplierModels.includes(m))
+  function handleEditAdvanceChange(field: string, value: string) {
+    setEditAdvanceForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "advance_currency" && value === "INR") next.advance_rate = "";
+      return next;
+    });
+  }
+
+  function detectUnknownModels(itemsList: PiItemDraft[], knownModels: string[]): string[] {
+    return [...new Set(
+      nonEmptyItems(itemsList).map((it) => it.model_number.trim())
+        .filter((m) => !knownModels.includes(m))
     )];
+  }
+
+  function handleCreate() {
+    const unknown = detectUnknownModels(items, supplierModels);
     if (unknown.length > 0 && selectedSupplier) {
       setNewModels(unknown);
       setNewModelModal(true);
@@ -296,13 +339,11 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
   }
 
   async function openEdit(row: Row) {
-    setEditForm({
-      pi_number: String(row.pi_number ?? ""),
-      pi_date: String(row.pi_date ?? ""),
-      currency: String(row.currency ?? ""),
-      exchange_rate: String(row.exchange_rate ?? ""),
-      confirmed_exworks: String(row.confirmed_exworks ?? ""),
-      credit_time: String(row.credit_time ?? ""),
+    setEditForm(Object.fromEntries(DIALOG_FIELDS.map((f) => [f, String(row[f] ?? "")])) as FormState);
+    setEditAdvanceForm({
+      advance_currency: String(row.advance_currency ?? ""),
+      advance_rate: String(row.advance_rate ?? ""),
+      advance_given: String(row.advance_given ?? ""),
     });
     setEditModal(row);
     // load the row's model-wise items; fall back to a single line built
@@ -322,24 +363,46 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
         rate: String(row.pi_rate ?? ""),
       }]);
     }
-    // best-effort: load the supplier's model list for the datalist
-    const supplier = suppliers.find((s) => s.supplier_name === row.supplier_name);
-    if (supplier) fetchModels(supplier);
+    const supplier = suppliers.find((s) => s.supplier_name === row.supplier_name) ?? null;
+    setEditSelectedSupplier(supplier);
+    if (supplier) fetchModelsInto(supplier, setEditSupplierModels); else setEditSupplierModels([]);
   }
 
-  async function handleSaveEdit() {
+  function handleSaveEdit() {
+    if (!editModal) return;
+    const unknown = detectUnknownModels(editItems, editSupplierModels);
+    if (unknown.length > 0 && editSelectedSupplier) {
+      setNewModels(unknown);
+      setNewModelModal(true);
+      return;
+    }
+    doSaveEdit();
+  }
+
+  async function doSaveEdit(saveModel = false) {
     if (!editModal) return;
     setSaving(true);
+    if (saveModel && editSelectedSupplier && newModels.length > 0) {
+      for (const m of newModels) {
+        await apiFetch(`${API}/api/suppliers/${editSelectedSupplier.id}/models`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model_number: m }),
+        });
+      }
+      setEditSupplierModels((prev) => [...prev, ...newModels].sort());
+    }
     // exchange_rate isn't shown/required when currency is INR (no conversion needed)
     const requiredFields = editForm.currency === "INR" ? EDIT_FIELDS.filter((k) => k !== "exchange_rate") : EDIT_FIELDS;
     const sendItems = nonEmptyItems(editItems);
     const itemsComplete = sendItems.length > 0 && sendItems.every((it) => it.quantity.trim() !== "" && it.rate.trim() !== "");
     const allFilled = itemsComplete && requiredFields.every((k) => (editForm[k] ?? "").trim() !== "");
-    const editTotal = itemsTotalValue(editItems);
-    const editInr = calcPoTotalInr(editTotal, editForm.currency, editForm.exchange_rate);
     const body: Record<string, unknown> = { ...editForm, fields_entered: allFilled };
     if (sendItems.length > 0) body.items = sendItems;
-    if (editInr) body.po_total_value = editInr;
+    if (editInrTotal) body.po_total_value = editInrTotal;
+    body.advance_given = editAdvanceForm.advance_given;
+    body.advance_currency = editAdvanceForm.advance_currency;
+    body.advance_rate = editAdvanceForm.advance_rate;
+    body.advance_inr = editAdvanceInr;
     const res = await apiFetch(`${API}/api/rows/${editModal.uid as string}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -348,6 +411,8 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       const updated = await res.json();
       setRows((r) => r.map((row) => row.uid === updated.uid ? updated : row));
       setEditModal(null);
+      setNewModelModal(false);
+      setNewModels([]);
     }
     setSaving(false);
   }
@@ -361,10 +426,18 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     router.push(`/import-planning`);
   }
 
-  function renderField(f: string) {
+  function renderFieldCommon(
+    f: string,
+    values: FormState,
+    handlers: {
+      onChange: (field: string, value: string) => void;
+      onSupplierChange: (name: string) => void;
+      onSupplierCodeChange: (code: string) => void;
+    },
+  ) {
     if (f === "supplier_name") {
       return (
-        <select style={inputStyle} value={form[f]} onChange={(e) => handleSupplierChange(e.target.value)}>
+        <select style={inputStyle} value={values[f]} onChange={(e) => handlers.onSupplierChange(e.target.value)}>
           <option value="">— select supplier —</option>
           {suppliers.map((s) => <option key={s.id} value={s.supplier_name}>{s.supplier_name}</option>)}
         </select>
@@ -372,7 +445,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     }
     if (f === "supplier_code") {
       return (
-        <select style={inputStyle} value={form[f]} onChange={(e) => setForm((fm) => ({ ...fm, supplier_code: e.target.value }))}>
+        <select style={inputStyle} value={values[f]} onChange={(e) => handlers.onSupplierCodeChange(e.target.value)}>
           <option value="">— select code —</option>
           {suppliers.map((s) => <option key={s.id} value={s.supplier_code}>{s.supplier_code}</option>)}
         </select>
@@ -380,7 +453,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
     }
     if (f === "currency") {
       return (
-        <select style={inputStyle} value={form.currency} onChange={(e) => handleFieldChange("currency", e.target.value)}>
+        <select style={inputStyle} value={values.currency} onChange={(e) => handlers.onChange("currency", e.target.value)}>
           <option value="">— select —</option>
           <option value="USD">USD (US Dollar)</option>
           <option value="INR">INR (Indian Rupee)</option>
@@ -389,20 +462,36 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       );
     }
     if (f === "exchange_rate") {
-      if (form.currency === "INR" || !form.currency) return null;
+      if (values.currency === "INR" || !values.currency) return null;
       return (
-        <input type="text" style={inputStyle} placeholder={`Rate: 1 ${form.currency} = ? INR`}
-          value={form.exchange_rate} onChange={(e) => handleFieldChange("exchange_rate", e.target.value)} />
+        <input type="text" style={inputStyle} placeholder={`Rate: 1 ${values.currency} = ? INR`}
+          value={values.exchange_rate} onChange={(e) => handlers.onChange("exchange_rate", e.target.value)} />
       );
     }
     if (f === "credit_time") {
-      return <input type="number" min="0" step="1" style={inputStyle} placeholder="Number of days" value={form[f]} onChange={(e) => handleFieldChange(f, e.target.value)} />;
+      return <input type="number" min="0" step="1" style={inputStyle} placeholder="Number of days" value={values[f]} onChange={(e) => handlers.onChange(f, e.target.value)} />;
     }
     return (
       <input type={DATE_FIELDS.has(f) ? "date" : MONTH_FIELDS.has(f) ? "month" : "text"} style={inputStyle}
-        placeholder={LABELS[f]} value={form[f]}
-        onChange={(e) => handleFieldChange(f, e.target.value)} />
+        placeholder={LABELS[f]} value={values[f]}
+        onChange={(e) => handlers.onChange(f, e.target.value)} />
     );
+  }
+
+  function renderField(f: string) {
+    return renderFieldCommon(f, form, {
+      onChange: handleFieldChange,
+      onSupplierChange: handleSupplierChange,
+      onSupplierCodeChange: (code) => setForm((fm) => ({ ...fm, supplier_code: code })),
+    });
+  }
+
+  function renderEditField(f: string) {
+    return renderFieldCommon(f, editForm, {
+      onChange: handleEditFieldChange,
+      onSupplierChange: handleEditSupplierChange,
+      onSupplierCodeChange: (code) => setEditForm((fm) => ({ ...fm, supplier_code: code })),
+    });
   }
 
   return (
@@ -544,37 +633,68 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
       )}
 
       {editModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
           onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); }}>
-          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "480px", maxHeight: "80vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "560px", maxHeight: "85vh", overflow: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400 }}>{editModal.fields_entered ? "Edit Fields" : "Enter Fields"} — PO / PI</h2>
-            {[
-              { key: "pi_number",       label: "PI Number",      type: "text"   },
-              { key: "pi_date",         label: "PI Date",        type: "date"   },
-              { key: "confirmed_exworks", label: "Ex-Works Date", type: "date"  },
-              { key: "credit_time",     label: "Credit Time (days)", type: "number" },
-            ].map((f) => (
-              <label key={f.key} style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-                {f.label}
-                <input type={f.type} style={inputStyle} value={editForm[f.key] ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))} />
-              </label>
-            ))}
-            <PiItemsEditor items={editItems} onChange={setEditItems} models={supplierModels} datalistId="po-pi-edit-model-list" />
-            <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-              Currency
-              <select style={inputStyle} value={editForm.currency ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, currency: e.target.value, exchange_rate: e.target.value === "INR" ? "" : prev.exchange_rate }))}>
-                <option value="">— select —</option>
-                <option value="USD">USD</option>
-                <option value="INR">INR</option>
-                <option value="CNY">CNY</option>
-              </select>
-            </label>
-            {editForm.currency && editForm.currency !== "INR" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              {DIALOG_FIELDS.map((f) => {
+                const rendered = renderEditField(f);
+                if (rendered === null) return null;
+                return (
+                  <label key={f} style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", fontFamily: "var(--font-sans), sans-serif", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    {LABELS[f]}
+                    {rendered}
+                  </label>
+                );
+              })}
+            </div>
+
+            <PiItemsEditor items={editItems} onChange={setEditItems} models={editSupplierModels}
+              datalistId="po-pi-edit-model-list" disabled={!editSelectedSupplier && suppliers.length > 0} />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
-                Exchange Rate (1 {editForm.currency} = ? INR)
-                <input type="text" style={inputStyle} value={editForm.exchange_rate ?? ""} onChange={(e) => setEditForm((prev) => ({ ...prev, exchange_rate: e.target.value }))} />
+                PI Total ({editForm.currency || "orig. currency"}) — auto
+                <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={editPiTotal ? editPiTotal.toFixed(2) : ""} readOnly placeholder="Auto-calculated" />
               </label>
-            )}
+              {editForm.currency !== "INR" && (
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Total in INR — auto
+                  <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={editInrTotal} readOnly placeholder="PI total × exchange rate" />
+                </label>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", padding: "12px", display: "flex", flexDirection: "column", gap: "10px", background: "#fafafa" }}>
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-mono), monospace" }}>Advance (optional)</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Currency
+                  <select style={inputStyle} value={editAdvanceForm.advance_currency} onChange={(e) => handleEditAdvanceChange("advance_currency", e.target.value)}>
+                    <option value="">— select —</option>
+                    <option value="USD">USD (US Dollar)</option>
+                    <option value="INR">INR (Indian Rupee)</option>
+                    <option value="CNY">CNY (Chinese Yuan)</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance Given (orig.)
+                  <input type="text" style={inputStyle} placeholder="Advance amount" value={editAdvanceForm.advance_given} onChange={(e) => handleEditAdvanceChange("advance_given", e.target.value)} />
+                </label>
+                {editAdvanceForm.advance_currency && editAdvanceForm.advance_currency !== "INR" && (
+                  <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                    Advance Rate (1 {editAdvanceForm.advance_currency} = ? INR)
+                    <input type="text" style={inputStyle} value={editAdvanceForm.advance_rate} onChange={(e) => handleEditAdvanceChange("advance_rate", e.target.value)} />
+                  </label>
+                )}
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#52525b", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  Advance (INR) — auto
+                  <input type="text" style={{ ...inputStyle, background: "#f0f0f0", color: "#52525b" }} value={editAdvanceInr} readOnly placeholder="Auto-calculated" />
+                </label>
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setEditModal(null)}>Cancel</button>
               <button style={btnStyle("primary")} onClick={handleSaveEdit} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
@@ -585,7 +705,7 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
 
       {newModelModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onKeyDown={(e) => { if (e.key === "Enter") doCreate(true); }}>
+          onKeyDown={(e) => { if (e.key === "Enter") (editModal ? doSaveEdit(true) : doCreate(true)); }}>
           <div style={{ background: "#fff", borderRadius: "14px", border: "1px solid #e4e4e7", padding: "28px", width: "400px", display: "flex", flexDirection: "column", gap: "16px" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-serif), Georgia, serif", fontSize: "18px", fontWeight: 400, color: "#09090b" }}>New model number{newModels.length > 1 ? "s" : ""}</h2>
             <p style={{ margin: 0, fontSize: "14px", fontFamily: "var(--font-sans), sans-serif", color: "#52525b", lineHeight: 1.5 }}>
@@ -595,12 +715,12 @@ export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
                   <strong style={{ fontFamily: "var(--font-mono), monospace", background: "#f4f4f5", padding: "1px 6px", borderRadius: "4px" }}>{m}</strong>
                 </span>
               ))}{" "}
-              {newModels.length > 1 ? "are" : "is"} not in <strong>{selectedSupplier?.supplier_name}</strong>'s model list. Save {newModels.length > 1 ? "them" : "it"}?
+              {newModels.length > 1 ? "are" : "is"} not in <strong>{(editModal ? editSelectedSupplier : selectedSupplier)?.supplier_name}</strong>'s model list. Save {newModels.length > 1 ? "them" : "it"}?
             </p>
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button style={btnStyle("ghost")} onClick={() => setNewModelModal(false)}>Cancel</button>
-              <button style={btnStyle("action")} onClick={() => doCreate(false)} disabled={saving}>Create without saving</button>
-              <button style={btnStyle("primary")} onClick={() => doCreate(true)} disabled={saving}>{saving ? "Saving…" : "Save & Create"}</button>
+              <button style={btnStyle("action")} onClick={() => (editModal ? doSaveEdit(false) : doCreate(false))} disabled={saving}>{editModal ? "Save without saving model" : "Create without saving"}</button>
+              <button style={btnStyle("primary")} onClick={() => (editModal ? doSaveEdit(true) : doCreate(true))} disabled={saving}>{saving ? "Saving…" : editModal ? "Save & Update" : "Save & Create"}</button>
             </div>
           </div>
         </div>

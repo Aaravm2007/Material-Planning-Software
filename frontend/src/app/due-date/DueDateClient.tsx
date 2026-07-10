@@ -42,7 +42,7 @@ export const DUEDATE_COLS_BASE = [
   { key: "credit_time", label: "Credit Time (days)" },
   { key: "advance_inr", label: "Advance (INR)" },
   ...DUE_FIELDS,
-  { key: "_est_due_calc", label: "Completed Due Date" },
+  { key: "_est_due_calc", label: "Completed Payment Date" },
 ];
 
 // Advance is entered at PO/PI and carried through read-only from here on;

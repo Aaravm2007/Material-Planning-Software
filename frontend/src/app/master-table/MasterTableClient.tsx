@@ -83,7 +83,7 @@ const SECTIONS = [
   {
     title: "Due Date",
     fields: [
-      { key: "estimated_due_date",        label: "Completed Due Date",  date: true },
+      { key: "estimated_due_date",        label: "Completed Payment Date",  date: true },
       { key: "hedged",                    label: "Hedged",   select: ["Y","N"]     },
       { key: "confirmed_payment_amt",     label: "Confirmed Payment Amt"           },
       { key: "confirmed_payment_exchange",label: "Payment Exchange Rate"           },

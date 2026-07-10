@@ -115,7 +115,7 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
           <span style={{ marginLeft: "8px", fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa", alignSelf: "center", textTransform: "uppercase" }}>
             {sorted.length} rows
           </span>
-          <button onClick={() => exportToExcel(sorted, "payment-plan", { supplier_name: "Supplier", supplier_code: "Supplier Code", pi_number: "PI Number", rocket_item_code: "Item Code", pi_total_value: "PI Total Value", currency: "Currency", exchange_rate: "Exchange Rate", po_total_value: "Amount in INR", bl_date: "BL Date", credit_time: "Credit Time (days)", _est_due: "Completed Due Date", confirmed_payment_amt: "Payment Amount", confirmed_payment_exchange: "Payment Exchange Rate", workflow_status: "Stage" })}
+          <button onClick={() => exportToExcel(sorted, "payment-plan", { supplier_name: "Supplier", supplier_code: "Supplier Code", pi_number: "PI Number", rocket_item_code: "Item Code", pi_total_value: "PI Total Value", currency: "Currency", exchange_rate: "Exchange Rate", po_total_value: "Amount in INR", bl_date: "BL Date", credit_time: "Credit Time (days)", _est_due: "Completed Payment Date", confirmed_payment_amt: "Payment Amount", confirmed_payment_exchange: "Payment Exchange Rate", workflow_status: "Stage" })}
             style={{ padding: "5px 12px", borderRadius: "7px", border: "1px solid #e4e4e7", background: "transparent", fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#71717a", cursor: "pointer", fontWeight: 600 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f4f4f5"; (e.currentTarget as HTMLElement).style.color = "#09090b"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#71717a"; }}>
@@ -140,7 +140,7 @@ export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] 
               <th style={TH}>Amount in INR</th>
               <th style={TH}>BL Date</th>
               <th style={TH}>Credit Time (days)</th>
-              <th style={TH}>Completed Due Date</th>
+              <th style={TH}>Completed Payment Date</th>
               <th style={TH}>Payment Amt</th>
               <th style={TH}>Payment Exchange Rate</th>
               <th style={TH}>Stage</th>

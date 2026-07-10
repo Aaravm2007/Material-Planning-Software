@@ -62,7 +62,7 @@ export const COLUMNS: { key: string; label: string }[] = [
   { key: "total_transport",               label: "Total Transport"          },
   { key: "landing_cost",                  label: "Landing Cost"             },
   // Due Date
-  { key: "estimated_due_date",            label: "Completed Due Date"       },
+  { key: "estimated_due_date",            label: "Completed Payment Date"   },
   { key: "hedged",                        label: "Hedged (Y/N)"             },
   { key: "confirmed_payment_amt",         label: "Confirmed Payment Amt"    },
   { key: "confirmed_payment_exchange",    label: "Payment Exchange Rate"    },

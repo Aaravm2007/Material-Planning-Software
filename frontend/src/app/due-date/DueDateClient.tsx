@@ -114,10 +114,31 @@ export default function DueDateClient({ initialRows }: { initialRows: Row[] }) {
 
   async function fetchRows() {
     const res = await apiFetch(`${API}/api/rows/stage/due_date`);
-    if (res.ok) setRows(await res.json());
+    if (res.ok) {
+      const data: Row[] = await res.json();
+      setRows(data);
+      syncEstimatedDueDate(data);
+    }
   }
   useEffect(() => { fetchRows(); }, []);
   usePolling(fetchRows, 10_000);
+
+  // Persist the auto-computed due date onto the row so it's visible outside
+  // this page (e.g. Master Table), keeping it in sync as bl_date/credit_time change.
+  async function syncEstimatedDueDate(rowList: Row[]) {
+    for (const row of rowList) {
+      const computed = calcEstimatedDueDate(row);
+      if (computed === "—" || row.estimated_due_date === computed) continue;
+      const res = await apiFetch(`${API}/api/rows/${row.uid}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estimated_due_date: computed }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setRows((r) => r.map((x) => x.uid === updated.uid ? updated : x));
+      }
+    }
+  }
 
   async function fetchHedgingRecords() {
     const res = await apiFetch(`${API}/api/hedging/`);

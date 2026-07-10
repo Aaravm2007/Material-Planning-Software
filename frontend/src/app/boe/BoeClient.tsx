@@ -72,7 +72,7 @@ function calcProvisional(row: { po_total_value: string | null; freight_charges: 
   const fr   = parseFloat(row.freight_charges ?? "0") || 0;
   const ins  = parseFloat(row.insurance ?? "0") || 0;
   const rate = parseFloat(row.customs_rate ?? "0") || 0;
-  const val = (po + fr + ins) * (rate / 100);
+  const val = (po + fr + ins) * (1 + rate / 100);
   return val > 0 ? val.toFixed(2) : "—";
 }
 

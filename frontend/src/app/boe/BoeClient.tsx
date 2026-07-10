@@ -89,10 +89,32 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     useTableState(rows as unknown as Record<string, unknown>[], BOE_FILTER_DEFS, "boe");
   async function fetchRows() {
     const res = await apiFetch(`${API}/api/rows/stage/boe`);
-    if (res.ok) setRows(await res.json());
+    if (res.ok) {
+      const data: Row[] = await res.json();
+      setRows(data);
+      syncProvisionalBoe(data);
+    }
   }
   useEffect(() => { fetchRows(); }, []);
   usePolling(fetchRows, 10_000);
+
+  // Persist the auto-computed provisional BOE onto the row so it's visible
+  // outside this page (e.g. Master Table), keeping it in sync as the
+  // underlying PO total / freight / insurance change.
+  async function syncProvisionalBoe(rowList: Row[]) {
+    for (const row of rowList) {
+      const computed = calcProvisional(row);
+      if (computed === "—" || row.provisional_boe === computed) continue;
+      const res = await apiFetch(`${API}/api/rows/${row.uid}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provisional_boe: computed }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setRows((r) => r.map((x) => x.uid === updated.uid ? updated : x));
+      }
+    }
+  }
 
   const [editModal, setEditModal] = useState<Row | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});

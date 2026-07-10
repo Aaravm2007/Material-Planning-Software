@@ -67,11 +67,12 @@ const readOnlyStyle: React.CSSProperties = { ...inputStyle, background: "#f0f0f0
 const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
 
-function calcProvisional(row: { po_total_value: string | null; freight_charges: string | null; insurance: string | null }): string {
-  const po  = parseFloat(row.po_total_value  ?? "0") || 0;
-  const fr  = parseFloat(row.freight_charges ?? "0") || 0;
-  const ins = parseFloat(row.insurance ?? "0") || 0;
-  const val = (po + fr + ins) * 0.11;
+function calcProvisional(row: { po_total_value: string | null; freight_charges: string | null; insurance: string | null; customs_rate: string | null }): string {
+  const po   = parseFloat(row.po_total_value  ?? "0") || 0;
+  const fr   = parseFloat(row.freight_charges ?? "0") || 0;
+  const ins  = parseFloat(row.insurance ?? "0") || 0;
+  const rate = parseFloat(row.customs_rate ?? "0") || 0;
+  const val = (po + fr + ins) * (rate / 100);
   return val > 0 ? val.toFixed(2) : "—";
 }
 
@@ -100,7 +101,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
 
   // Persist the auto-computed provisional BOE onto the row so it's visible
   // outside this page (e.g. Master Table), keeping it in sync as the
-  // underlying PO total / freight / insurance change.
+  // underlying PO total / freight / insurance / customs rate change.
   async function syncProvisionalBoe(rowList: Row[]) {
     for (const row of rowList) {
       const computed = calcProvisional(row);
@@ -128,11 +129,10 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
     const inrSum = entryList.reduce((acc, e) => acc + entryInrValue(e), 0);
     setRows((r) => r.map((row) => {
       if (row.uid !== uid) return row;
-      const customsRate = parseFloat(row.customs_rate ?? "0") || 0;
       return {
         ...row,
         actual_boe: sum > 0 ? String(sum.toFixed(2)) : "0",
-        actual_boe_inr: inrSum > 0 ? String((inrSum * (1 + customsRate / 100)).toFixed(2)) : "0",
+        actual_boe_inr: inrSum > 0 ? String(inrSum.toFixed(2)) : "0",
       };
     }));
   }
@@ -226,9 +226,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
 
   const entrySum = entries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
   const entryInrSum = entries.reduce((acc, e) => acc + entryInrValue(e), 0);
-  const customsRatePreview = parseFloat(editForm.customs_rate ?? "0") || 0;
-  const actualBoeFinal = entryInrSum * (1 + customsRatePreview / 100);
-  const provisionalBoePreview = editModal ? calcProvisional(editModal) : "—";
+  const provisionalBoePreview = editModal ? calcProvisional({ ...editModal, customs_rate: editForm.customs_rate ?? editModal.customs_rate }) : "—";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "12px", background: "#fff" }}>
@@ -382,7 +380,7 @@ export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
               <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b", flexWrap: "wrap" }}>
                 <span>Provisional BOE: {provisionalBoePreview}</span>
                 <span>Sum: {entrySum > 0 ? entrySum.toFixed(2) : "0"}</span>
-                <span style={{ fontWeight: 600, color: "#09090b" }}>Actual BOE: {actualBoeFinal > 0 ? actualBoeFinal.toFixed(2) : "0"}</span>
+                <span style={{ fontWeight: 600, color: "#09090b" }}>Actual BOE: {entryInrSum > 0 ? entryInrSum.toFixed(2) : "0"}</span>
               </div>
             </div>
 

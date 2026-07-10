@@ -111,7 +111,7 @@ def _row_to_dict(row: MaterialRow, boe_sum: float = 0.0, boe_inr_sum: float = 0.
         "modified_at": row.modified_at,
         **{f: getattr(row, f) for f in ALL_FIELDS},
         "actual_boe": row.actual_boe if row.actual_boe else (str(round(boe_sum, 2)) if boe_sum else None),
-        "actual_boe_inr": str(round(boe_inr_sum * (1 + _safe_float(row.customs_rate) / 100), 2)) if boe_inr_sum else None,
+        "actual_boe_inr": str(round(boe_inr_sum, 2)) if boe_inr_sum else None,
         "total_transport": str(round(total_transport, 2)) if total_transport else None,
     }
 

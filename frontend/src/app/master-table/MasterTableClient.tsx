@@ -257,10 +257,9 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
     const inrSum = entryList.reduce((acc, e) => acc + entryInrValue(e), 0);
     setRows((r) => r.map((row) => {
       if (row.uid !== uid) return row;
-      const customsRate = parseFloat((row.customs_rate as string) ?? "0") || 0;
       const updated: Row = { ...row };
       updated.actual_boe = sum > 0 ? String(sum.toFixed(2)) : "0";
-      updated.actual_boe_inr = inrSum > 0 ? String((inrSum * (1 + customsRate / 100)).toFixed(2)) : "0";
+      updated.actual_boe_inr = inrSum > 0 ? String(inrSum.toFixed(2)) : "0";
       return updated;
     }));
   }
@@ -549,7 +548,7 @@ export default function MasterTableClient({ initialRows }: { initialRows: Row[] 
                   <div style={{ display: "flex", gap: "16px", fontSize: "12px", fontFamily: "var(--font-mono), monospace", color: "#52525b", flexWrap: "wrap" }}>
                     <span>Sum: {boeEntries.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0).toFixed(2)}</span>
                     <span style={{ fontWeight: 600, color: "#09090b" }}>
-                      Actual BOE: {(boeEntries.reduce((acc, e) => acc + entryInrValue(e), 0) * (1 + (parseFloat(editForm.customs_rate ?? "0") || 0) / 100)).toFixed(2)}
+                      Actual BOE: {boeEntries.reduce((acc, e) => acc + entryInrValue(e), 0).toFixed(2)}
                     </span>
                   </div>
                 </div>

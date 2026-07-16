@@ -9,6 +9,7 @@ import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import { useDensity } from "@/components/DensityContext";
 
 export const PENDING_COL_DEFS_BASE: ColDef[] = [
   { key: "supplier_name",    label: "Supplier",      type: "text" },
@@ -86,24 +87,23 @@ const inputStyle: React.CSSProperties = {
   fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", outline: "none", background: "#fafafa",
 };
 
-const TH: React.CSSProperties = {
-  padding: "9px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = {
-  padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap",
-};
-
-function renderPendingCell(col: ColDef, row: Row) {
-  return <td key={col.key} style={TD}>{(row[col.key] as string) ?? "—"}</td>;
-}
-
 export default function ImportPlanningClient({
   initialPending, initialApproved,
 }: { initialPending: Row[]; initialApproved: Row[] }) {
   const { role } = useRole();
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "9px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "3px 8px" : "9px 14px", fontSize: "13px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap",
+  };
+  function renderPendingCell(col: ColDef, row: Row) {
+    return <td key={col.key} style={TD}>{(row[col.key] as string) ?? "—"}</td>;
+  }
   const dedup = (rows: Row[]) => rows.filter((r, i, a) => a.findIndex((x) => x.uid === r.uid) === i);
   const [pending, setPending] = useState<Row[]>(dedup(initialPending));
   const [approved, setApproved] = useState<Row[]>(dedup(initialApproved));

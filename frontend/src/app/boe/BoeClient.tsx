@@ -8,6 +8,7 @@ import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import AmountInput from "@/components/AmountInput";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import { useDensity } from "@/components/DensityContext";
 
 const ENTRY_CCY_OPTIONS = ["INR", "USD", "EUR", "CNY", "GBP", "AED"];
 
@@ -64,9 +65,6 @@ const inputStyle: React.CSSProperties = {
 
 const readOnlyStyle: React.CSSProperties = { ...inputStyle, background: "#f0f0f0", color: "#52525b" };
 
-const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap" };
-const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
-
 function calcProvisional(row: { po_total_value: string | null; freight_charges: string | null; insurance: string | null; customs_rate: string | null }): string {
   const po   = parseFloat(row.po_total_value  ?? "0") || 0;
   const fr   = parseFloat(row.freight_charges ?? "0") || 0;
@@ -83,6 +81,9 @@ function entryInrValue(e: { amount: string; currency: string | null; rate: strin
 }
 
 export default function BoeClient({ initialRows }: { initialRows: Row[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap" };
+  const TD: React.CSSProperties = { padding: compact ? "3px 8px" : "9px 14px", fontSize: "13px", borderBottom: "1px solid #d4d4d8", color: "#09090b", whiteSpace: "nowrap" };
   const [rows, setRows] = useState<Row[]>(initialRows);
   const columnOrder = useColumnOrder("boe");
   const BOE_FILTER_DEFS = useMemo(() => applyColumnOrder(BOE_FILTER_DEFS_BASE, columnOrder), [columnOrder]);

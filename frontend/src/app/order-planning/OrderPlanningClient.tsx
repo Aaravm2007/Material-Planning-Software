@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleContext";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import { useDensity } from "@/components/DensityContext";
 import PiItemsEditor, { PiItemDraft, blankItem, itemsTotalValue, nonEmptyItems } from "@/components/PiItemsEditor";
 
 interface Plan {
@@ -80,9 +81,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", outline: "none", background: "#fafafa", color: "#09090b",
 };
 
-const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
-const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", whiteSpace: "nowrap" };
-
 export const ORDER_PLANNING_COLS_BASE = [
   { key: "supplier_name",          label: "Supplier"        },
   { key: "supplier_model_number",  label: "Model No."       },
@@ -95,36 +93,6 @@ export const ORDER_PLANNING_COLS_BASE = [
   { key: "remark",                 label: "Remarks"         },
   { key: "created_at",             label: "Created"         },
 ];
-
-function renderPlanCell(col: { key: string; label: string }, p: Plan) {
-  switch (col.key) {
-    case "supplier_name":
-      return <td key={col.key} style={TD}>{p.supplier_name}</td>;
-    case "supplier_model_number":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
-    case "quantity":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
-    case "unit":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#71717a", textTransform: "capitalize" }}>{p.unit === "containers" ? "Containers" : "Nos"}</td>;
-    case "ordered_quantity":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
-    case "quantity_diff": {
-      const d = parseFloat(p.quantity_diff ?? "");
-      const color = !p.quantity_diff ? "#d4d4d8" : d === 0 ? "#16a34a" : d > 0 ? "#ef4444" : "#f97316";
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, color }}>{p.quantity_diff != null ? (parseFloat(p.quantity_diff) > 0 ? "+" : "") + p.quantity_diff : "—"}</td>;
-    }
-    case "rate":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.rate ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
-    case "target_date":
-      return <td key={col.key} style={TD}>{p.target_date ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
-    case "remark":
-      return <td key={col.key} style={{ ...TD, color: p.remark ? "#09090b" : "#d4d4d8", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{p.remark ?? "—"}</td>;
-    case "created_at":
-      return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{fmtDate(p.created_at)}</td>;
-    default:
-      return <td key={col.key} style={TD}>—</td>;
-  }
-}
 
 function fmtDate(s: string | null) {
   if (!s) return null;
@@ -146,6 +114,38 @@ export default function OrderPlanningClient({ initialPlans }: { initialPlans: Pl
   const router = useRouter();
   const { role } = useRole();
   const isExpert = role === "expert";
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
+  const TD: React.CSSProperties = { padding: compact ? "3px 8px" : "9px 14px", fontSize: "13px", borderBottom: "1px solid #d4d4d8", fontFamily: "var(--font-sans), sans-serif", color: "#09090b", whiteSpace: "nowrap" };
+  function renderPlanCell(col: { key: string; label: string }, p: Plan) {
+    switch (col.key) {
+      case "supplier_name":
+        return <td key={col.key} style={TD}>{p.supplier_name}</td>;
+      case "supplier_model_number":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.supplier_model_number ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+      case "quantity":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+      case "unit":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#71717a", textTransform: "capitalize" }}>{p.unit === "containers" ? "Containers" : "Nos"}</td>;
+      case "ordered_quantity":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.ordered_quantity ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+      case "quantity_diff": {
+        const d = parseFloat(p.quantity_diff ?? "");
+        const color = !p.quantity_diff ? "#d4d4d8" : d === 0 ? "#16a34a" : d > 0 ? "#ef4444" : "#f97316";
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontWeight: 600, color }}>{p.quantity_diff != null ? (parseFloat(p.quantity_diff) > 0 ? "+" : "") + p.quantity_diff : "—"}</td>;
+      }
+      case "rate":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace" }}>{p.rate ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+      case "target_date":
+        return <td key={col.key} style={TD}>{p.target_date ?? <span style={{ color: "#d4d4d8" }}>—</span>}</td>;
+      case "remark":
+        return <td key={col.key} style={{ ...TD, color: p.remark ? "#09090b" : "#d4d4d8", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis" }}>{p.remark ?? "—"}</td>;
+      case "created_at":
+        return <td key={col.key} style={{ ...TD, fontFamily: "var(--font-mono), monospace", fontSize: "11px", color: "#a1a1aa" }}>{fmtDate(p.created_at)}</td>;
+      default:
+        return <td key={col.key} style={TD}>—</td>;
+    }
+  }
   const [plans, setPlans] = useState<Plan[]>(initialPlans);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const columnOrder = useColumnOrder("order_planning");

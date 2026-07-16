@@ -6,6 +6,7 @@ import { SHIPMENT_STATUSES } from "@/app/import-planning/ImportPlanningClient";
 import { exportToExcel } from "@/lib/exportExcel";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { useDensity } from "@/components/DensityContext";
 
 const MATPLAN_COL_DEFS: ColDef[] = [
   { key: "workflow_status", label: "Stage",           type: "select", options: ["po_pi","pending_import","approved_import","boe","transportation","due_date","complete"] },
@@ -62,17 +63,6 @@ const STAGE_COLOR: Record<string, { bg: string; color: string; border: string }>
   complete:       { bg: "#f0fdf4", color: "#166534",  border: "#86efac" },
 };
 
-const TH: React.CSSProperties = {
-  padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.07em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-  fontFamily: "var(--font-sans), sans-serif",
-};
-const TD: React.CSSProperties = {
-  padding: "10px 16px", fontSize: "13px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif",
-};
-
 function exworks(row: Row): { value: string; tentative: boolean } | null {
   if (row.confirmed_exworks) return { value: row.confirmed_exworks, tentative: false };
   if (row.tentative_exworks_at_po_time) return { value: row.tentative_exworks_at_po_time, tentative: true };
@@ -86,6 +76,17 @@ function eta(row: Row): { value: string; tentative: boolean } | null {
 }
 
 export default function MaterialPlanClient({ initialRows }: { initialRows: Row[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.07em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+    fontFamily: "var(--font-sans), sans-serif",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", fontSize: "13px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif",
+  };
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

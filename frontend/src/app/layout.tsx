@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { RoleProvider } from "@/components/RoleContext";
+import { DensityProvider } from "@/components/DensityContext";
 import TrackpadScrollFix from "@/components/TrackpadScrollFix";
 import SessionBanner from "@/components/SessionBanner";
 
@@ -30,12 +31,14 @@ export default function RootLayout({
     >
       <body style={{ height: "100%", margin: 0, background: "#ffffff", display: "flex" }}>
         <RoleProvider>
-          <SessionBanner />
-          <TrackpadScrollFix />
-          <Sidebar />
-          <main style={{ flex: 1, height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            {children}
-          </main>
+          <DensityProvider>
+            <SessionBanner />
+            <TrackpadScrollFix />
+            <Sidebar />
+            <main style={{ flex: 1, height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              {children}
+            </main>
+          </DensityProvider>
         </RoleProvider>
       </body>
     </html>

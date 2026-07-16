@@ -4,6 +4,7 @@ import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { exportToExcel } from "@/lib/exportExcel";
+import { useDensity } from "@/components/DensityContext";
 
 interface ChaRecord {
   id: number;
@@ -28,9 +29,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", outline: "none", background: "#fafafa", color: "#09090b",
 };
 
-const TH: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap" };
-const TD: React.CSSProperties = { padding: "10px 16px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
-
 const COLS = [
   { key: "cha_name",    label: "CHA Name"    },
   { key: "agent_name",  label: "Agent Name"  },
@@ -41,6 +39,9 @@ const COLS = [
 const emptyForm = () => ({ cha_name: "", agent_name: "", cha_charges: "", date: "" });
 
 export default function ChaClient({ initialRecords }: { initialRecords: ChaRecord[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap" };
+  const TD: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 16px", fontSize: "13px", borderBottom: "1px solid #d4d4d8", color: "#09090b", whiteSpace: "nowrap" };
   const [records, setRecords] = useState<ChaRecord[]>(initialRecords);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm());

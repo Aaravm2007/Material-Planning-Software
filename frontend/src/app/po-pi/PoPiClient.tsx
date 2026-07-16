@@ -8,6 +8,7 @@ import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
 import { exportToExcel } from "@/lib/exportExcel";
 import { applyColumnOrder, useColumnOrder } from "@/lib/columnOrder";
+import { useDensity } from "@/components/DensityContext";
 import PiItemsEditor, { PiItemDraft, blankItem, itemsTotalValue, nonEmptyItems } from "@/components/PiItemsEditor";
 
 interface Row { id: number; uid: string; fields_entered: boolean | null; [key: string]: string | null | number | boolean; }
@@ -99,9 +100,6 @@ const inputStyle: React.CSSProperties = {
   fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", outline: "none", background: "#fafafa",
 };
 
-const TH: React.CSSProperties = { padding: "10px 14px", textAlign: "left", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap" };
-const TD: React.CSSProperties = { padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap" };
-
 export const POPI_COL_DEFS_BASE: ColDef[] = [
   { key: "date_of_po",            label: "Date of PO",        type: "date"   },
   { key: "supplier_name",         label: "Supplier Name",     type: "text"   },
@@ -129,6 +127,9 @@ export const POPI_COL_DEFS_BASE: ColDef[] = [
 ];
 
 export default function PoPiClient({ initialRows }: { initialRows: Row[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 14px", textAlign: "left", fontSize: "12px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap" };
+  const TD: React.CSSProperties = { padding: compact ? "3px 8px" : "9px 14px", fontSize: "13px", borderBottom: "1px solid #d4d4d8", color: "#09090b", whiteSpace: "nowrap" };
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>(initialRows);
   const columnOrder = useColumnOrder("po_pi");

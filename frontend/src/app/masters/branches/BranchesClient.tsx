@@ -4,6 +4,7 @@ import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect } from "react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { usePolling } from "@/lib/usePolling";
+import { useDensity } from "@/components/DensityContext";
 
 interface Branch { id: number; name: string; }
 interface AllotmentHistoryEntry {
@@ -27,17 +28,17 @@ const inputStyle: React.CSSProperties = {
   background: "#fafafa", color: "#09090b",
 };
 
-const TH: React.CSSProperties = {
-  padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = {
-  padding: "10px 16px", fontSize: "14px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap",
-};
-
 export default function BranchesClient({ initialBranches }: { initialBranches: Branch[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", fontSize: "14px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap",
+  };
   const [branches, setBranches] = useState<Branch[]>(initialBranches);
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");

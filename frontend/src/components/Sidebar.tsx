@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRole } from "./RoleContext";
+import { useDensity } from "./DensityContext";
 import { API, apiFetch } from "@/lib/apiFetch";
 
 const NAV = [
@@ -60,6 +61,7 @@ function useServerStatus() {
 export default function Sidebar() {
   const pathname = usePathname();
   const { role, email } = useRole();
+  const { compact, toggle: toggleCompact } = useDensity();
   const serverStatus = useServerStatus();
 
   const linkStyle = (href: string, indent = false): React.CSSProperties => {
@@ -150,6 +152,28 @@ export default function Sidebar() {
           </>
         )}
       </nav>
+
+      {/* Display density */}
+      <div style={{ padding: "10px 16px 8px", borderTop: "1px solid #e4e4e7" }}>
+        <button
+          onClick={toggleCompact}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        >
+          <span style={{ fontSize: "12px", fontFamily: "var(--font-sans), sans-serif", color: "#52525b" }}>
+            Compact Mode
+          </span>
+          <span style={{
+            width: "30px", height: "16px", borderRadius: "8px", position: "relative", flexShrink: 0,
+            background: compact ? "#09090b" : "#e4e4e7", transition: "background 0.15s",
+          }}>
+            <span style={{
+              position: "absolute", top: "2px", left: compact ? "16px" : "2px",
+              width: "12px", height: "12px", borderRadius: "50%", background: "#fff",
+              transition: "left 0.15s",
+            }} />
+          </span>
+        </button>
+      </div>
 
       {/* Admin section */}
       <div style={{ padding: "10px 16px 8px", borderTop: "1px solid #e4e4e7" }}>

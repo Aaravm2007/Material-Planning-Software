@@ -4,6 +4,7 @@ import { API, apiFetch } from "@/lib/apiFetch";
 import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { exportToExcel } from "@/lib/exportExcel";
+import { useDensity } from "@/components/DensityContext";
 
 interface HedgingRecord {
   id: number;
@@ -31,16 +32,6 @@ const inputStyle: React.CSSProperties = {
   background: "#fafafa", color: "#09090b",
 };
 
-const TH: React.CSSProperties = {
-  padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = {
-  padding: "10px 16px", fontSize: "13px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap",
-};
-
 const FIELDS = [
   { key: "hedged_date",            label: "Hedged Date",              type: "date"   },
   { key: "contract_number",        label: "Hedging Contract No",      type: "text"   },
@@ -53,6 +44,16 @@ const FIELDS = [
 const emptyForm = () => Object.fromEntries(FIELDS.map((f) => [f.key, ""]));
 
 export default function HedgingClient({ initialRecords }: { initialRecords: HedgingRecord[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", fontSize: "13px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap",
+  };
   const [records, setRecords] = useState<HedgingRecord[]>(initialRecords);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<Record<string, string>>(emptyForm());

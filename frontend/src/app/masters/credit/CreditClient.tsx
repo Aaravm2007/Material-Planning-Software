@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { usePolling } from "@/lib/usePolling";
 import AmountInput from "@/components/AmountInput";
 import { exportToExcel } from "@/lib/exportExcel";
+import { useDensity } from "@/components/DensityContext";
 
 interface CreditRecord { id: number; company: string; credit_amt: string; date: string | null; }
 
@@ -22,14 +23,14 @@ const inputStyle: React.CSSProperties = {
   fontSize: "13px", fontFamily: "var(--font-sans), sans-serif", outline: "none", background: "#fafafa", color: "#09090b",
 };
 
-const TH: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
-const TD: React.CSSProperties = { padding: "10px 16px", fontSize: "13px", borderBottom: "1px solid #f4f4f5", color: "#09090b", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
-
 function fmt(n: number) {
   return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
 export default function CreditClient({ initialRecords }: { initialRecords: CreditRecord[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
+  const TD: React.CSSProperties = { padding: compact ? "4px 8px" : "10px 16px", fontSize: "13px", borderBottom: "1px solid #d4d4d8", color: "#09090b", whiteSpace: "nowrap", fontFamily: "var(--font-sans), sans-serif" };
   const [records, setRecords] = useState<CreditRecord[]>(initialRecords);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ company: "", credit_amt: "", date: "" });

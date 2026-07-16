@@ -161,6 +161,7 @@ function StageBadge({ value }: { value: string | null }) {
 
 import { SortState, ColDef, FilterValue } from "./useTableState";
 import InlineFilters from "./InlineFilters";
+import { useDensity } from "./DensityContext";
 
 interface DataTableProps {
   rows: Row[];
@@ -176,22 +177,24 @@ interface DataTableProps {
 }
 
 export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDefs, filters, distinctValues, onFilter, columns = COLUMNS }: DataTableProps) {
+  const { compact } = useDensity();
+  const cellPadding = compact ? "4px 8px" : "12px 16px";
   const hasFilters = !!(colDefs && filters && distinctValues && onFilter);
   return (
     <div className="w-full h-full overflow-auto" style={{ background: "#ffffff" }}>
       <table className="border-collapse" style={{ minWidth: "max-content", width: "100%" }}>
         <thead className="sticky top-0 z-20">
-          <tr style={{ background: "#fafafa", borderBottom: "1px solid #e4e4e7" }}>
-            <th className="sticky left-0 z-30 px-4 py-3 text-left whitespace-nowrap"
-              style={{ background: "#fafafa", borderRight: "1px solid #e4e4e7", borderBottom: "1px solid #e4e4e7", borderTopLeftRadius: "11px", fontFamily: "var(--font-mono), monospace", fontSize: "13px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#09090b", minWidth: "52px" }}>
+          <tr style={{ background: "#fafafa", borderBottom: "1px solid #b8b8bf" }}>
+            <th className="sticky left-0 z-30 text-left whitespace-nowrap"
+              style={{ padding: cellPadding, background: "#fafafa", borderRight: "1px solid #b8b8bf", borderBottom: "1px solid #b8b8bf", borderTopLeftRadius: "11px", fontFamily: "var(--font-mono), monospace", fontSize: "13px", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#09090b", minWidth: "52px" }}>
               #
             </th>
             {columns.map((col) => {
               const isSorted = sort?.key === col.key;
               return (
-                <th key={col.key} className="px-4 py-3 text-left whitespace-nowrap"
+                <th key={col.key} className="text-left whitespace-nowrap"
                   onClick={() => onSort?.(col.key)}
-                  style={{ background: "#fafafa", borderRight: "1px solid #e4e4e7", borderBottom: "1px solid #e4e4e7", fontFamily: "var(--font-sans), sans-serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", cursor: onSort ? "pointer" : undefined, userSelect: "none" }}>
+                  style={{ padding: cellPadding, background: "#fafafa", borderRight: "1px solid #b8b8bf", borderBottom: "1px solid #b8b8bf", fontFamily: "var(--font-sans), sans-serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b", cursor: onSort ? "pointer" : undefined, userSelect: "none" }}>
                   {col.label}
                   {onSort && (
                     <span style={{ marginLeft: "5px", fontSize: "10px", display: "inline-flex", flexDirection: "column", lineHeight: "10px", verticalAlign: "middle", gap: "1px" }}>
@@ -202,7 +205,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
                 </th>
               );
             })}
-            {(onReopen || onEdit) && <th className="px-4 py-3 text-right whitespace-nowrap" style={{ background: "#fafafa", borderRight: "1px solid #e4e4e7", borderBottom: "1px solid #e4e4e7", fontFamily: "var(--font-sans), sans-serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b" }}>Actions</th>}
+            {(onReopen || onEdit) && <th className="text-right whitespace-nowrap" style={{ padding: cellPadding, background: "#fafafa", borderRight: "1px solid #b8b8bf", borderBottom: "1px solid #b8b8bf", fontFamily: "var(--font-sans), sans-serif", fontSize: "13px", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b" }}>Actions</th>}
           </tr>
           {hasFilters && (
             <InlineFilters
@@ -223,9 +226,9 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
           ) : (
             rows.map((row, idx) => (
               <tr key={row.id} className="group transition-colors duration-150"
-                style={{ borderBottom: "1px solid #f4f4f5" }}>
-                <td className="sticky left-0 z-10 px-4 py-3 whitespace-nowrap group-hover:bg-zinc-50"
-                  style={{ background: "#ffffff", borderRight: "1px solid #e4e4e7", fontFamily: "var(--font-mono), monospace", fontSize: "14px", color: "#a1a1aa", minWidth: "52px" }}>
+                style={{ borderBottom: "1px solid #d4d4d8" }}>
+                <td className="sticky left-0 z-10 whitespace-nowrap group-hover:bg-zinc-50"
+                  style={{ padding: cellPadding, background: "#ffffff", borderRight: "1px solid #b8b8bf", fontFamily: "var(--font-mono), monospace", fontSize: "14px", color: "#a1a1aa", minWidth: "52px" }}>
                   {String(idx + 1).padStart(3, "0")}
                 </td>
                 {columns.map((col) => {
@@ -236,14 +239,14 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
                   const ccy = CCY_FOR_KEY[col.key] ? row[CCY_FOR_KEY[col.key]] : null;
                   const displayVal = MONEY_DISPLAY_KEYS.has(col.key) ? fmtAmount(val, ccy) : val;
                   return (
-                    <td key={col.key} className="px-4 py-3 whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150"
-                      style={{ borderRight: "1px solid #f4f4f5", fontFamily: isMono ? "var(--font-mono), monospace" : "var(--font-sans), sans-serif", fontSize: "14px", color: val ? "#09090b" : "#d4d4d8" }}>
+                    <td key={col.key} className="whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150"
+                      style={{ padding: cellPadding, borderRight: "1px solid #d4d4d8", fontFamily: isMono ? "var(--font-mono), monospace" : "var(--font-sans), sans-serif", fontSize: "14px", color: val ? "#09090b" : "#d4d4d8" }}>
                       {isYN ? <YNBadge value={val} /> : isStage ? <StageBadge value={val} /> : displayVal ? displayVal : <span style={{ color: "#e4e4e7" }}>—</span>}
                     </td>
                   );
                 })}
                 {(onReopen || onEdit) && (
-                  <td className="px-4 py-3 whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150" style={{ borderRight: "1px solid #f4f4f5", textAlign: "right" }}>
+                  <td className="whitespace-nowrap group-hover:bg-zinc-50 transition-colors duration-150" style={{ padding: cellPadding, borderRight: "1px solid #d4d4d8", textAlign: "right" }}>
                     <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                       {onEdit && (
                         <button onClick={() => onEdit(String(row["uid"]))}

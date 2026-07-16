@@ -6,6 +6,7 @@ import { usePolling } from "@/lib/usePolling";
 import { exportToExcel } from "@/lib/exportExcel";
 import InlineFilters from "@/components/InlineFilters";
 import { useTableState, ColDef } from "@/components/useTableState";
+import { useDensity } from "@/components/DensityContext";
 
 interface Row {
   id: number;
@@ -26,16 +27,6 @@ interface Row {
   workflow_status: string | null;
   [key: string]: string | null | number;
 }
-
-const TH: React.CSSProperties = {
-  padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = {
-  padding: "9px 14px", fontSize: "13px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap",
-};
 
 const STAGE_LABELS: Record<string, string> = {
   po_pi: "PO/PI", pending_import: "Import ⏳", approved_import: "Import ✓",
@@ -105,6 +96,16 @@ function isDueSoon(dateStr: string | null): boolean {
 }
 
 export default function PaymentPlanClient({ initialRows }: { initialRows: Row[] }) {
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "3px 8px" : "9px 14px", fontSize: "13px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap",
+  };
   const [rows, setRows] = useState<Row[]>(initialRows);
   const [filter, setFilter] = useState<"all" | "upcoming" | "overdue">("all");
 

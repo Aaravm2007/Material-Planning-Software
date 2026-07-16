@@ -3,21 +3,22 @@
 import { useEffect, useState } from "react";
 import { API, apiFetch } from "@/lib/apiFetch";
 import { useRole } from "@/components/RoleContext";
+import { useDensity } from "@/components/DensityContext";
 
 interface User { id: number; username: string; email: string | null; role: string; is_blocked: boolean; }
 
-const TH: React.CSSProperties = {
-  padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
-  letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
-  background: "#fafafa", borderBottom: "1px solid #e4e4e7", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = {
-  padding: "11px 16px", fontSize: "13px", borderBottom: "1px solid #f4f4f5",
-  color: "#09090b", whiteSpace: "nowrap",
-};
-
 export default function AdminClient() {
   const { role: myRole, email: myEmail, loading } = useRole();
+  const { compact } = useDensity();
+  const TH: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: 600,
+    letterSpacing: "0.06em", textTransform: "uppercase", color: "#09090b",
+    background: "#fafafa", borderBottom: "1px solid #b8b8bf", whiteSpace: "nowrap",
+  };
+  const TD: React.CSSProperties = {
+    padding: compact ? "4px 8px" : "11px 16px", fontSize: "13px", borderBottom: "1px solid #d4d4d8",
+    color: "#09090b", whiteSpace: "nowrap",
+  };
   const [users, setUsers] = useState<User[]>([]);
   const [fetching, setFetching] = useState(true);
   const [actioning, setActioning] = useState<{ id: number; action: string } | null>(null);

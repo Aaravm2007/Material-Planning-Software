@@ -182,7 +182,7 @@ export default function DataTable({ rows, onReopen, onEdit, sort, onSort, colDef
   const hasFilters = !!(colDefs && filters && distinctValues && onFilter);
   return (
     <div className="w-full h-full overflow-auto" style={{ background: "#ffffff" }}>
-      <table className="border-collapse" style={{ minWidth: "max-content", width: "100%" }}>
+      <table className="border-collapse" style={{ minWidth: "max-content", width: compact ? undefined : "100%" }}>
         <thead className="sticky top-0 z-20">
           <tr style={{ background: "#fafafa", borderBottom: "1px solid #b8b8bf" }}>
             <th className="sticky left-0 z-30 text-left whitespace-nowrap"

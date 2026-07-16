@@ -111,7 +111,7 @@ export default function AdminClient() {
       </div>
 
       <div style={{ border: "1px solid #e4e4e7", borderRadius: "10px", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table style={{ width: compact ? undefined : "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th style={TH}>Email</th>

@@ -4,6 +4,7 @@ import {
   ColDef, FilterValue, DateMode,
   TextFilter, DateFilter, AmountFilter, SelectFilter,
 } from "./useTableState";
+import { useDensity } from "./DensityContext";
 
 const inp: React.CSSProperties = {
   padding: "3px 6px", borderRadius: "5px", border: "1px solid #e4e4e7",
@@ -34,13 +35,14 @@ function MSelect({ value, placeholder, onChange }: { value: string; placeholder:
 }
 
 function TextCell({ col, f, onFilter }: { col: ColDef; f: TextFilter | undefined; onFilter: (k: string, v: FilterValue | null) => void }) {
+  const { compact } = useDensity();
   return (
     <div style={{ position: "relative" }}>
       <input
         type="text" placeholder="search…"
         value={f?.value ?? ""}
         onChange={(e) => onFilter(col.key, { mode: "text", value: e.target.value })}
-        style={inp}
+        style={{ ...inp, width: compact ? "64px" : "100%" }}
       />
       {f?.value && (
         <button onClick={() => onFilter(col.key, null)}
@@ -53,6 +55,8 @@ function TextCell({ col, f, onFilter }: { col: ColDef; f: TextFilter | undefined
 }
 
 function AmountCell({ col, f, onFilter }: { col: ColDef; f: AmountFilter | undefined; onFilter: (k: string, v: FilterValue | null) => void }) {
+  const { compact } = useDensity();
+  const boxWidth = compact ? "36px" : "48px";
   const min = f?.min ?? ""; const max = f?.max ?? "";
   const upd = (patch: Partial<AmountFilter>) => onFilter(col.key, { mode: "amount", min, max, ...patch });
   const hasSome = !!(min || max);
@@ -60,11 +64,11 @@ function AmountCell({ col, f, onFilter }: { col: ColDef; f: AmountFilter | undef
     <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
       <input type="text" inputMode="decimal" placeholder="min" value={min}
         onChange={(e) => upd({ min: e.target.value })}
-        style={{ ...inp, width: "48px" }} />
+        style={{ ...inp, width: boxWidth }} />
       <span style={{ color: "#a1a1aa", fontSize: "10px", flexShrink: 0 }}>–</span>
       <input type="text" inputMode="decimal" placeholder="max" value={max}
         onChange={(e) => upd({ max: e.target.value })}
-        style={{ ...inp, width: "48px" }} />
+        style={{ ...inp, width: boxWidth }} />
       {hasSome && (
         <button onClick={() => onFilter(col.key, null)}
           style={{ background: "none", border: "none", cursor: "pointer", color: "#a1a1aa", fontSize: "13px", lineHeight: 1, padding: "0 1px", flexShrink: 0 }}>
@@ -76,13 +80,14 @@ function AmountCell({ col, f, onFilter }: { col: ColDef; f: AmountFilter | undef
 }
 
 function DateCell({ col, f, onFilter }: { col: ColDef; f: DateFilter | undefined; onFilter: (k: string, v: FilterValue | null) => void }) {
+  const { compact } = useDensity();
   const dm = f?.dateMode ?? "exact";
   const upd = (patch: Partial<DateFilter>) =>
     onFilter(col.key, { mode: "date", dateMode: dm, ...f, ...patch } as DateFilter);
   const hasValue = !!(f?.exact || f?.from || f?.to || f?.year || f?.month || f?.fromYear || f?.fromMonth || f?.toYear || f?.toMonth);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "3px", minWidth: "110px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "3px", minWidth: compact ? undefined : "110px" }}>
       <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
         <select value={dm} onChange={(e) => onFilter(col.key, { mode: "date", dateMode: e.target.value as DateMode })}
           style={{ ...inp, padding: "3px 4px", flex: 1 }}>
@@ -141,6 +146,7 @@ function SelectCell({ col, f, options, onFilter }: {
   col: ColDef; f: SelectFilter | undefined; options: string[];
   onFilter: (k: string, v: FilterValue | null) => void;
 }) {
+  const { compact } = useDensity();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = new Set(f?.values ?? []);
@@ -166,7 +172,7 @@ function SelectCell({ col, f, options, onFilter }: {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={() => setOpen(!open)}
-        style={{ ...inp, cursor: "pointer", textAlign: "left", whiteSpace: "nowrap",
+        style={{ ...inp, width: compact ? "auto" : "100%", cursor: "pointer", textAlign: "left", whiteSpace: "nowrap",
           background: noneSelected ? "#fff" : "#09090b",
           color: noneSelected ? "#71717a" : "#fff",
           border: `1px solid ${noneSelected ? "#e4e4e7" : "#09090b"}` }}>

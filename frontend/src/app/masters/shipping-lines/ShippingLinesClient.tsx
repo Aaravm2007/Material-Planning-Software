@@ -178,7 +178,7 @@ export default function ShippingLinesClient({ initialLines }: { initialLines: Sh
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "grid", gridTemplateColumns: panelOpen ? "1fr 340px" : "1fr", gap: "12px" }}>
         {/* Shipping lines table */}
         <div style={{ overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+          <table style={{ borderCollapse: "collapse", width: compact ? undefined : "100%" }}>
             <thead className="sticky top-0 z-10">
               <tr>
                 <th style={TH}>#</th>

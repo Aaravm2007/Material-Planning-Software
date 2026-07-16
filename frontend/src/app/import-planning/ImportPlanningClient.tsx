@@ -407,7 +407,7 @@ export default function ImportPlanningClient({
             )}
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
+            <table style={{ borderCollapse: "collapse", width: compact ? undefined : "100%", minWidth: "max-content" }}>
               <thead className="sticky top-0 z-10">
                 <tr>
                   {PENDING_COL_DEFS.map((c) => {
@@ -452,7 +452,7 @@ export default function ImportPlanningClient({
             ✓ Approved ({approvedFilter.filteredCount < approved.length ? `${approvedFilter.filteredCount} / ${approved.length}` : approved.length})
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "max-content" }}>
+            <table style={{ borderCollapse: "collapse", width: compact ? undefined : "100%", minWidth: "max-content" }}>
               <thead className="sticky top-0 z-10">
                 <tr>
                   {APPROVED_COLS.map((c) => {

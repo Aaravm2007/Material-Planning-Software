@@ -103,7 +103,7 @@ export default function BranchesClient({ initialBranches }: { initialBranches: B
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", border: "1px solid #e4e4e7", borderRadius: "12px" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <table style={{ borderCollapse: "collapse", width: compact ? undefined : "100%" }}>
           <thead className="sticky top-0 z-10">
             <tr>
               <th style={TH}>#</th>
